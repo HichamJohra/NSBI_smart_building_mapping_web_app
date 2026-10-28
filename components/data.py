@@ -1,0 +1,155 @@
+"""Data access layer.
+
+Reads data/smart_buildings_dataset.xlsx. The workbook is re-read automatically when
+the file changes on disk, so editing the Excel file and refreshing the browser is
+enough to see new data (no restart needed).
+
+The sheet 'data_dictionary' drives the app: it gives labels/units and flags (Y)
+saying which columns appear in which dropdown (map_size, map_color, xy, filter, hover).
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from pathlib import Path
+
+import pandas as pd
+
+DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "smart_buildings_dataset.xlsx"
+
+SBP_LEVEL_NAMES = {
+    -2: "No technological equipment",
+    -1: "Pre-automated",
+    0: "Automated",
+    1: "Smart ready",
+    2: "Smart standard",
+    3: "Smart predictive",
+    4: "Smart cognitive",
+}
+
+
+@dataclass
+class Dataset:
+    buildings: pd.DataFrame
+    detailed: pd.DataFrame
+    dictionary: pd.DataFrame
+    sources: pd.DataFrame
+    mtime: float
+
+
+_cache: Dataset | None = None
+
+
+def get_data() -> Dataset:
+    """Return the dataset, reloading it if the Excel file was modified."""
+    global _cache
+    mtime = DATA_FILE.stat().st_mtime
+    if _cache is None or _cache.mtime != mtime:
+        sheets = pd.read_excel(DATA_FILE, sheet_name=None)
+        b = sheets["buildings"]
+        b = b[b["building_id"].notna()].copy()
+        b["building_id"] = b["building_id"].astype(str)
+        if "short_name" not in b.columns:
+            b["short_name"] = b["building_id"]
+        b["short_name"] = b["short_name"].fillna(b["building_id"]).astype(str)
+        d = sheets.get("data_dictionary", pd.DataFrame(columns=["column", "label", "unit", "group", "dtype"]))
+        d = d[d["column"].isin(b.columns)].fillna("")
+        _cache = Dataset(
+            buildings=b.reset_index(drop=True),
+            detailed=sheets.get("sri_detailed", pd.DataFrame(columns=["building_id", "domain", "impact", "score_pct"])),
+            dictionary=d.reset_index(drop=True),
+            sources=sheets.get("sources", pd.DataFrame()),
+            mtime=mtime,
+        )
+    return _cache
+
+
+# ----------------------------------------------------------------- dictionary helpers
+def _meta(col: str) -> dict:
+    d = get_data().dictionary
+    row = d[d["column"] == col]
+    return row.iloc[0].to_dict() if len(row) else {"column": col, "label": col, "unit": "", "group": "", "dtype": ""}
+
+
+def label(col: str, with_unit: bool = True) -> str:
+    m = _meta(col)
+    lab = m.get("label") or col
+    unit = m.get("unit") or ""
+    return f"{lab} [{unit}]" if with_unit and unit else lab
+
+
+def unit(col: str) -> str:
+    return _meta(col).get("unit") or ""
+
+
+def is_numeric(col: str) -> bool:
+    b = get_data().buildings
+    return col in b.columns and pd.api.types.is_numeric_dtype(b[col])
+
+
+def columns_for(flag: str, kind: str | None = None) -> list[str]:
+    """Columns flagged 'Y' for a given use, that actually contain data.
+
+    kind: 'numeric', 'categorical' or None (both).
+    """
+    data = get_data()
+    d = data.dictionary
+    if flag not in d.columns:
+        return []
+    cols = d.loc[d[flag].astype(str).str.upper().str.strip() == "Y", "column"].tolist()
+    out = []
+    for c in cols:
+        if data.buildings[c].notna().sum() == 0:
+            continue  # hide empty columns (e.g. EPC label not yet filled in)
+        num = is_numeric(c)
+        if kind == "numeric" and not num:
+            continue
+        if kind == "categorical" and num:
+            continue
+        out.append(c)
+    return out
+
+
+def dropdown_options(cols: list[str]) -> list[dict]:
+    """Dropdown options grouped by dictionary group (shown as 'Group · Label')."""
+    opts = []
+    for c in cols:
+        m = _meta(c)
+        grp = m.get("group") or ""
+        opts.append({"label": f"{grp} · {label(c)}" if grp else label(c), "value": c})
+    return opts
+
+
+def fmt(col: str, value) -> str:
+    """Human-readable value with unit."""
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return "n/a"
+    u = unit(col)
+    if isinstance(value, (int, float)):
+        if u == "%":
+            return f"{value:.1f} %"
+        if u.startswith("level"):
+            return f"{value:.2f}"
+        if u == "m²":
+            return f"{value:,.0f} m²".replace(",", " ")
+        if float(value).is_integer():
+            return f"{int(value)}"
+        return f"{value:.2f}"
+    return str(value)
+
+
+def sbp_level_name(level) -> str:
+    if level is None or (isinstance(level, float) and math.isnan(level)):
+        return "n/a"
+    return SBP_LEVEL_NAMES.get(int(math.floor(level)), "")
+
+
+def building_options() -> list[dict]:
+    b = get_data().buildings
+    return [{"label": f"{r.short_name} — {r.building_name}", "value": r.building_id} for r in b.itertuples()]
+
+
+def get_building(building_id: str) -> pd.Series | None:
+    b = get_data().buildings
+    row = b[b["building_id"] == building_id]
+    return row.iloc[0] if len(row) else None
