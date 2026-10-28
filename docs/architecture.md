@@ -6,7 +6,7 @@ discovered automatically from the `pages/` folder; shared logic lives in `compon
 ```
 app.py                  Dash app, navigation bar, page container (entry point; server = app.server)
 pages/                  one module per page, each calls dash.register_page(...)
-  home.py               "/"          Dashboard: filters, bubble map, XY correlation explorer, data table
+  home.py               "/"          Dashboard: KPIs, dynamic filters, bubble map, statistics, XY explorer, data table
   building.py           "/building"  Building detail (query string ?building_id=...)
   compare.py            "/compare"   Compare 2–6 buildings
   about.py              "/about"     Frameworks, scales, sources, caveats
@@ -35,21 +35,39 @@ docs/                   documentation and the project graph explorer
 ## Dashboard data flow (pages/home.py)
 
 All filters feed a single callback, `_filter()`, which stores the ids of the matching buildings in a
-`dcc.Store` (`#db-ids`). Every view (KPI cards, map, scatter, table) listens to that store, so filtering
-logic exists in one place only.
+`dcc.Store` (`#db-ids`). Every view (KPI cards, statistics cards, map, scatter, table) listens to that store,
+so filtering logic exists in one place only.
+
+### Dynamic filters (pattern-matching callbacks)
+
+Category and numeric filters are lists of rows that the user can add (`+ Add …` buttons) and remove (✕).
+Each row's components use dictionary ids, e.g. `{"type": "catf-param", "index": 3}`:
+
+| Row type | Components (`type`) | Per-row callback (MATCH) |
+|---|---|---|
+| Category filter | `catf-row`, `catf-param`, `catf-vals`, `catf-del` | `_cat_options()`: parameter → value list |
+| Numeric filter | `numf-row`, `numf-param`, `numf-range`, `numf-del` | `_cfg_range()`: parameter → slider min/max/step |
+
+- `_edit_cat_filters()` / `_edit_num_filters()` append or delete rows with a `Patch` (other rows keep their state).
+- `_cat_del_visibility()` / `_num_del_visibility()` hide the ✕ button when only one row is left, so at least
+  one category and one numeric filter are always visible.
+- `_filter()` reads all rows with `ALL` wildcards and combines them with AND.
+- `_reset()` replaces both lists with one fresh row each.
 
 ```mermaid
 flowchart LR
-  S["db-f-source"] --> F
-  C["db-f-category"] --> F
-  CP["db-f-catparam"] --> CO["_cat_options()"] --> CV["db-f-catvals"] --> F
-  CP --> F
-  N1["db-f-num1"] --> R1C["_cfg_range1()"] --> R1["db-f-range1"] --> F
-  N2["db-f-num2"] --> R2C["_cfg_range2()"] --> R2["db-f-range2"] --> F
-  N1 --> F
-  N2 --> F
-  F["_filter()"] --> IDS[("db-ids (Store)")]
-  IDS --> K["_kpis()"] --> KPI["KPI cards"]
+  ADDC["db-catf-add / catf-del[*]"] --> EC["_edit_cat_filters()"] --> CL["db-catf-list (rows)"]
+  ADDN["db-numf-add / numf-del[*]"] --> EN["_edit_num_filters()"] --> NL["db-numf-list (rows)"]
+  CP["catf-param[*]"] --> CO["_cat_options()"] --> CV["catf-vals[*]"]
+  NP["numf-param[*]"] --> CR["_cfg_range()"] --> NR["numf-range[*]"]
+  CP --> F["_filter()"]
+  CV --> F
+  NP --> F
+  NR --> F
+  F --> IDS[("db-ids (Store)")]
+  IDS --> K["_kpis()"] --> KPI["KPI cards: buildings, total surface area, countries, municipalities"]
+  IDS --> ST["_stat() (MATCH)"] --> STO["stat-out[*]: mean ± std, n, min, max"]
+  SP["stat-param[*]"] --> ST
   IDS --> M["_map()"] --> MAP["db-map"]
   IDS --> SC["_scatter()"] --> SCAT["db-scatter + db-stats"]
   IDS --> T["_table()"] --> GRID["db-grid"]
@@ -60,20 +78,19 @@ flowchart LR
   SEL --> LINK["db-selected (link to /building)"]
   SEARCH["db-search"] --> Q["_search()"] --> GRID
   RESET["db-reset"] --> RS["_reset()"]
-  RS --> S
-  RS --> C
-  RS --> CP
-  RS --> N1
-  RS --> N2
+  RS --> CL
+  RS --> NL
   RS --> SEARCH
 ```
 
-For the complete, always up-to-date picture (all pages, all 14 callbacks, every function call), open
+For the complete, always up-to-date picture (all pages, all callbacks, every function call), open
 [project_graph_explorer/NSBI_project_explorer.html](project_graph_explorer/NSBI_project_explorer.html).
+In the explorer, pattern-matching components appear as one node per type, e.g. `#catf-param[*]`.
 
 ## Conventions
 
 - Component ids are prefixed per page: `db-` (dashboard), `bd-` (building detail), `cmp-` (compare).
+  Pattern-matching ids use a `type` key (`catf-…`, `numf-…`, `stat-…`) and an integer `index`.
 - Callback functions are private (`_name`) and live in the page module that owns the components.
 - Percentages are stored 0–100; SbP levels on the −2…4 scale; missing = empty cell (NaN), never 0.
 - Adding a page: create `pages/<name>.py` with `dash.register_page(__name__, path=..., name=..., order=...)`

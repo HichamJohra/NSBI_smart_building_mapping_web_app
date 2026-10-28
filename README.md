@@ -18,7 +18,7 @@ python app.py                 # -> http://127.0.0.1:8050
 | Path | Purpose |
 |---|---|
 | `app.py` | App entry point, navigation bar, page container |
-| `pages/home.py` | Dashboard: filters, bubble map, XY correlation explorer, full dataset table |
+| `pages/home.py` | Dashboard: KPIs, add/remove filters, bubble map, statistics cards, XY correlation explorer, full dataset table |
 | `pages/building.py` | Building detail: SRI key functionalities, impacts, domains, detailed matrix, SbP topics |
 | `pages/compare.py` | Compare 2–6 buildings on radar and bar charts |
 | `pages/about.py` | Frameworks (SRI, Smart by Powerhouse), scales, sources, caveats |

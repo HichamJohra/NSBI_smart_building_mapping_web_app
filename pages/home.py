@@ -1,11 +1,11 @@
-"""Main dashboard: filters, bubble map, XY correlation plot and full dataset table."""
+"""Main dashboard: filters, bubble map, statistics, XY correlation plot and full dataset table."""
 import dash
 import dash_ag_grid as dag
 import numpy as np
 import pandas as pd
-from dash import Input, Output, Patch, callback, ctx, dcc, html, no_update
+from dash import ALL, MATCH, Input, Output, Patch, State, callback, ctx, dcc, html, no_update
 
-from components.data import columns_for, dropdown_options, get_data, is_numeric, label, unit
+from components.data import columns_for, dropdown_options, fmt, get_data, is_numeric, label, unit
 from components.figures import map_figure, scatter_figure
 from components.ui import card, control, graph, kpi
 
@@ -18,6 +18,9 @@ BASEMAPS = [
     {"label": "Dark", "value": "carto-darkmatter"},
 ]
 COLORSCALES = ["Viridis", "RdYlGn", "Plasma", "Blues", "Turbo"]
+DEFAULT_CAT_FILTER = "source_study"          # parameter pre-selected in the first category filter
+STAT_DEFAULTS = ["sri_total_pct", "sbp_level"]  # parameters pre-selected in the two statistics cards
+HIDDEN = {"display": "none"}
 
 
 def _pick(preferred: str, options: list[str], fallback_index: int = 0):
@@ -51,47 +54,75 @@ def _column_defs(df: pd.DataFrame) -> list[dict]:
     return defs
 
 
+# ----------------------------------------------------------------- dynamic filter rows
+def _cat_row(index: int, param: str | None = None) -> html.Div:
+    """One category filter: parameter dropdown + values dropdown + remove button."""
+    cols = columns_for("filter", "categorical")
+    param = param if param in cols else None
+    return html.Div(id={"type": "catf-row", "index": index}, className="filter-row", children=[
+        dcc.Dropdown(id={"type": "catf-param", "index": index}, options=dropdown_options(cols), value=param,
+                     placeholder="Choose a category parameter…"),
+        dcc.Dropdown(id={"type": "catf-vals", "index": index}, options=_cat_values(param), value=[], multi=True,
+                     placeholder="All values"),
+        html.Button("✕", id={"type": "catf-del", "index": index}, className="btn-icon", title="Remove this filter"),
+    ])
+
+
+def _num_row(index: int, param: str | None = None) -> html.Div:
+    """One numeric filter: parameter dropdown + range slider + remove button."""
+    cols = columns_for("filter", "numeric")
+    param = param if param in cols else None
+    lo, hi, val, marks, step, disabled = _range_config(param)
+    return html.Div(id={"type": "numf-row", "index": index}, className="filter-row", children=[
+        dcc.Dropdown(id={"type": "numf-param", "index": index}, options=dropdown_options(cols), value=param,
+                     placeholder="Choose a numeric parameter…"),
+        html.Div(className="range-block", children=dcc.RangeSlider(
+            id={"type": "numf-range", "index": index}, min=lo, max=hi, value=val, marks=marks, step=step,
+            disabled=disabled, tooltip={"placement": "bottom", "always_visible": True})),
+        html.Button("✕", id={"type": "numf-del", "index": index}, className="btn-icon", title="Remove this filter"),
+    ])
+
+
+def _stat_card(index: int, param: str | None) -> html.Div:
+    cols = columns_for("xy", "numeric")
+    return html.Div(className="stat-card", children=[
+        control("Statistics for", dcc.Dropdown(id={"type": "stat-param", "index": index},
+                                               options=dropdown_options(cols), value=_pick(param, cols, index),
+                                               clearable=False)),
+        html.Div(id={"type": "stat-out", "index": index}),
+    ])
+
+
 def layout(**_):
     data = get_data()
     b = data.buildings
     size_cols = columns_for("map_size", "numeric")
     color_cols = columns_for("map_color")
     xy_cols = columns_for("xy", "numeric")
-    num_filter_cols = columns_for("filter", "numeric")
-    cat_filter_cols = columns_for("filter", "categorical")
 
     filters = card(
         [
-            html.Div(className="grid-4", children=[
-                control("Source study", dcc.Dropdown(id="db-f-source", options=_cat_values("source_study") if "source_study" in b else [],
-                                                     multi=True, placeholder="All")),
-                control("Building category", dcc.Dropdown(id="db-f-category", options=_cat_values("building_category") if "building_category" in b else [],
-                                                          multi=True, placeholder="All")),
-                control("Other category filter", dcc.Dropdown(id="db-f-catparam", options=dropdown_options(cat_filter_cols),
-                                                              placeholder="Choose a parameter…")),
-                control("…values", dcc.Dropdown(id="db-f-catvals", multi=True, placeholder="All")),
-            ]),
-            html.Div(className="grid-2", children=[
+            html.Div(className="grid-2 filters-grid", children=[
                 html.Div([
-                    control("Numeric filter 1", dcc.Dropdown(id="db-f-num1", options=dropdown_options(num_filter_cols),
-                                                             placeholder="Choose a parameter…")),
-                    dcc.RangeSlider(id="db-f-range1", min=0, max=1, value=[0, 1], disabled=True,
-                                    tooltip={"placement": "bottom", "always_visible": True}),
-                ], className="range-block"),
+                    html.Label("Category filters", className="control-label"),
+                    html.Div(id="db-catf-list", children=[_cat_row(0, DEFAULT_CAT_FILTER)]),
+                    html.Button("+ Add category filter", id="db-catf-add", className="btn-light"),
+                ]),
                 html.Div([
-                    control("Numeric filter 2", dcc.Dropdown(id="db-f-num2", options=dropdown_options(num_filter_cols),
-                                                             placeholder="Choose a parameter…")),
-                    dcc.RangeSlider(id="db-f-range2", min=0, max=1, value=[0, 1], disabled=True,
-                                    tooltip={"placement": "bottom", "always_visible": True}),
-                ], className="range-block"),
+                    html.Label("Numeric filters", className="control-label"),
+                    html.Div(id="db-numf-list", children=[_num_row(0)]),
+                    html.Button("+ Add numeric filter", id="db-numf-add", className="btn-light"),
+                ]),
             ]),
             html.Div(className="filter-footer", children=[
                 html.Span(id="db-filter-count", className="muted"),
                 html.Button("Reset filters", id="db-reset", className="btn"),
             ]),
         ],
-        title="Filters", subtitle="Filters apply to the map, the correlation plot and the table. "
-                                  "Buildings without a value for a numeric filter parameter are excluded while that filter is active.",
+        title="Filters",
+        subtitle="Filters apply to the map, the statistics, the correlation plot and the table. All filters are "
+                 "combined (AND). Buildings without a value for a numeric filter parameter are excluded while "
+                 "that filter is active.",
     )
 
     map_card = card(
@@ -106,11 +137,12 @@ def layout(**_):
                 control("Colour scale (numeric)", dcc.Dropdown(id="db-cscale", options=COLORSCALES, value="Viridis",
                                                                clearable=False)),
                 control("Map background", dcc.Dropdown(id="db-basemap", options=BASEMAPS, value="carto-positron",
-                                                 clearable=False)),
+                                                       clearable=False)),
             ]),
             graph("db-map"),
             html.Div(id="db-selected", className="selected-panel",
                      children="Click a bubble (map or plot) to open the building's detail page."),
+            html.Div(className="grid-2 stat-row", children=[_stat_card(i, p) for i, p in enumerate(STAT_DEFAULTS)]),
         ],
         title="Map of smart buildings",
         subtitle="Bubble size and colour show the selected parameters. Hover for details; scroll to zoom.",
@@ -166,8 +198,8 @@ def layout(**_):
         ]),
         html.Div(className="kpi-row", children=[
             kpi("Buildings shown", "db-kpi-n"),
-            kpi("Mean SRI score", "db-kpi-sri"),
-            kpi("Mean SbP level", "db-kpi-sbp"),
+            kpi("Total surface area", "db-kpi-area", "db-kpi-area-sub"),
+            kpi("Countries", "db-kpi-countries"),
             kpi("Municipalities", "db-kpi-mun"),
         ]),
         filters,
@@ -178,7 +210,7 @@ def layout(**_):
     ])
 
 
-# ----------------------------------------------------------------- callbacks
+# ----------------------------------------------------------------- callbacks: filter rows
 def _range_config(col):
     if not col:
         return 0, 1, [0, 1], None, None, True
@@ -193,78 +225,142 @@ def _range_config(col):
     return lo, hi, [lo, hi], marks, step, False
 
 
-@callback(
-    Output("db-f-range1", "min"), Output("db-f-range1", "max"), Output("db-f-range1", "value"),
-    Output("db-f-range1", "marks"), Output("db-f-range1", "step"), Output("db-f-range1", "disabled"),
-    Input("db-f-num1", "value"),
-)
-def _cfg_range1(col):
-    return _range_config(col)
+def _edit_rows(row_ids, make_row):
+    """Shared add/remove logic for the two filter lists (keeps at least one row)."""
+    trig = ctx.triggered_id
+    if not ctx.triggered or not ctx.triggered[0]["value"]:
+        return no_update  # a new remove button appeared (n_clicks None), not a click
+    indices = [r["index"] for r in row_ids]
+    p = Patch()
+    if isinstance(trig, str):  # "+ Add" button
+        p.append(make_row(max(indices, default=-1) + 1))
+        return p
+    if len(indices) <= 1 or trig["index"] not in indices:
+        return no_update
+    del p[indices.index(trig["index"])]
+    return p
 
 
 @callback(
-    Output("db-f-range2", "min"), Output("db-f-range2", "max"), Output("db-f-range2", "value"),
-    Output("db-f-range2", "marks"), Output("db-f-range2", "step"), Output("db-f-range2", "disabled"),
-    Input("db-f-num2", "value"),
+    Output("db-catf-list", "children"),
+    Input("db-catf-add", "n_clicks"), Input({"type": "catf-del", "index": ALL}, "n_clicks"),
+    State({"type": "catf-row", "index": ALL}, "id"), prevent_initial_call=True,
 )
-def _cfg_range2(col):
-    return _range_config(col)
+def _edit_cat_filters(_add, _dels, row_ids):
+    return _edit_rows(row_ids, _cat_row)
 
 
-@callback(Output("db-f-catvals", "options"), Output("db-f-catvals", "value"), Input("db-f-catparam", "value"))
+@callback(
+    Output("db-numf-list", "children"),
+    Input("db-numf-add", "n_clicks"), Input({"type": "numf-del", "index": ALL}, "n_clicks"),
+    State({"type": "numf-row", "index": ALL}, "id"), prevent_initial_call=True,
+)
+def _edit_num_filters(_add, _dels, row_ids):
+    return _edit_rows(row_ids, _num_row)
+
+
+@callback(Output({"type": "catf-del", "index": ALL}, "style"), Input({"type": "catf-row", "index": ALL}, "id"))
+def _cat_del_visibility(row_ids):
+    return [HIDDEN if len(row_ids) <= 1 else {} for _ in row_ids]
+
+
+@callback(Output({"type": "numf-del", "index": ALL}, "style"), Input({"type": "numf-row", "index": ALL}, "id"))
+def _num_del_visibility(row_ids):
+    return [HIDDEN if len(row_ids) <= 1 else {} for _ in row_ids]
+
+
+@callback(
+    Output({"type": "catf-vals", "index": MATCH}, "options"), Output({"type": "catf-vals", "index": MATCH}, "value"),
+    Input({"type": "catf-param", "index": MATCH}, "value"), prevent_initial_call=True,
+)
 def _cat_options(col):
     return _cat_values(col), []
 
 
 @callback(
-    Output("db-f-source", "value"), Output("db-f-category", "value"), Output("db-f-catparam", "value"),
-    Output("db-f-num1", "value"), Output("db-f-num2", "value"), Output("db-search", "value"),
+    Output({"type": "numf-range", "index": MATCH}, "min"), Output({"type": "numf-range", "index": MATCH}, "max"),
+    Output({"type": "numf-range", "index": MATCH}, "value"), Output({"type": "numf-range", "index": MATCH}, "marks"),
+    Output({"type": "numf-range", "index": MATCH}, "step"), Output({"type": "numf-range", "index": MATCH}, "disabled"),
+    Input({"type": "numf-param", "index": MATCH}, "value"), prevent_initial_call=True,
+)
+def _cfg_range(col):
+    return _range_config(col)
+
+
+@callback(
+    Output("db-catf-list", "children", allow_duplicate=True),
+    Output("db-numf-list", "children", allow_duplicate=True),
+    Output("db-search", "value"),
     Input("db-reset", "n_clicks"), prevent_initial_call=True,
 )
-def _reset(_):
-    return [], [], None, None, None, ""
+def _reset(n):
+    base = (n or 0) * 1000  # fresh ids so no stale component state is reused
+    return [_cat_row(base, DEFAULT_CAT_FILTER)], [_num_row(base)], ""
 
 
 @callback(
     Output("db-ids", "data"), Output("db-filter-count", "children"),
-    Input("db-f-source", "value"), Input("db-f-category", "value"),
-    Input("db-f-catparam", "value"), Input("db-f-catvals", "value"),
-    Input("db-f-num1", "value"), Input("db-f-range1", "value"),
-    Input("db-f-num2", "value"), Input("db-f-range2", "value"),
+    Input({"type": "catf-param", "index": ALL}, "value"), Input({"type": "catf-vals", "index": ALL}, "value"),
+    Input({"type": "numf-param", "index": ALL}, "value"), Input({"type": "numf-range", "index": ALL}, "value"),
 )
-def _filter(sources, cats, catparam, catvals, num1, rng1, num2, rng2):
+def _filter(cat_params, cat_vals, num_params, num_ranges):
     b = get_data().buildings
     m = pd.Series(True, index=b.index)
-    if sources:
-        m &= b["source_study"].astype(str).isin(sources)
-    if cats:
-        m &= b["building_category"].astype(str).isin(cats)
-    if catparam and catvals:
-        m &= b[catparam].astype(str).isin(catvals)
-    for col, rng in ((num1, rng1), (num2, rng2)):
+    for col, vals in zip(cat_params, cat_vals):
+        if col and vals and col in b.columns:
+            m &= b[col].astype(str).isin(vals)
+    n_active = sum(1 for c, v in zip(cat_params, cat_vals) if c and v)
+    for col, rng in zip(num_params, num_ranges):
         if col and rng and col in b.columns:
-            v = b[col].astype(float)
-            m &= v.between(rng[0] - 1e-9, rng[1] + 1e-9)
+            m &= b[col].astype(float).between(rng[0] - 1e-9, rng[1] + 1e-9)
+            n_active += 1
     ids = b.loc[m, "building_id"].tolist()
-    return ids, f"{len(ids)} of {len(b)} buildings match the filters"
+    return ids, f"{len(ids)} of {len(b)} buildings match · {n_active} active filter(s)"
 
 
+# ----------------------------------------------------------------- callbacks: views
 def _subset(ids):
     b = get_data().buildings
     return b if ids is None else b[b["building_id"].isin(ids)]
 
 
 @callback(
-    Output("db-kpi-n", "children"), Output("db-kpi-sri", "children"),
-    Output("db-kpi-sbp", "children"), Output("db-kpi-mun", "children"),
+    Output("db-kpi-n", "children"), Output("db-kpi-area", "children"), Output("db-kpi-area-sub", "children"),
+    Output("db-kpi-countries", "children"), Output("db-kpi-mun", "children"),
     Input("db-ids", "data"),
 )
 def _kpis(ids):
     d = _subset(ids)
-    sri = f"{d['sri_total_pct'].mean():.1f} %" if "sri_total_pct" in d and d["sri_total_pct"].notna().any() else "–"
-    sbp = f"{d['sbp_level'].mean():.2f}" if "sbp_level" in d and d["sbp_level"].notna().any() else "–"
+    if "floor_area_m2" in d and d["floor_area_m2"].notna().any():
+        known = d["floor_area_m2"].dropna()
+        area = fmt("floor_area_m2", float(known.sum()))
+        area_sub = f"{len(known)} of {len(d)} buildings with known floor area"
+    else:
+        area, area_sub = "–", "no floor area data for these buildings"
+    countries = d["country"].nunique() if "country" in d else "–"
     mun = d["municipality"].nunique() if "municipality" in d else "–"
-    return f"{len(d)}", sri, sbp, f"{mun}"
+    return f"{len(d)}", area, area_sub, f"{countries}", f"{mun}"
+
+
+@callback(
+    Output({"type": "stat-out", "index": MATCH}, "children"),
+    Input({"type": "stat-param", "index": MATCH}, "value"), Input("db-ids", "data"),
+)
+def _stat(col, ids):
+    d = _subset(ids)
+    if not col or col not in d:
+        return html.Div("Choose a parameter", className="muted")
+    v = d[col].dropna().astype(float)
+    if v.empty:
+        return html.Div("No values for the filtered buildings", className="muted")
+    std = fmt(col, float(v.std(ddof=1))) if len(v) > 1 else "n/a"
+    return html.Div([
+        html.Div([html.Span(fmt(col, float(v.mean())), className="stat-main"),
+                  html.Span(f" ± {std}", className="stat-std")]),
+        html.Div("mean ± standard deviation", className="muted"),
+        html.Div(f"n = {len(v)} of {len(d)} buildings · min {fmt(col, float(v.min()))} · max {fmt(col, float(v.max()))}",
+                 className="muted"),
+    ])
 
 
 @callback(

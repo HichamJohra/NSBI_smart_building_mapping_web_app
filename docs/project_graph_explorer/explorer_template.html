@@ -427,7 +427,7 @@ function showDetails(n) {
     if (f.decorators?.length && !f.callback) h += `<h3>Decorators</h3><div class="mono">${f.decorators.map(esc).join("<br>")}</div>`;
     if (f.callback) {
       const rows = k => f.callback.deps.filter(d => d.kind === k).map(d =>
-        `<tr><td>${link("comp:" + d.id, "#" + d.id)}</td><td class="mono">${esc(d.prop)}${d.allow_duplicate ? " (dup)" : ""}</td></tr>`).join("");
+        `<tr><td>${link("comp:" + d.id, "#" + d.id)}${d.wildcard ? ` <span class="pill">${esc(d.wildcard)}</span>` : ""}</td><td class="mono">${esc(d.prop)}${d.allow_duplicate ? " (dup)" : ""}</td></tr>`).join("");
       h += `<h3>Inputs (trigger)</h3><table>${rows("input") || "<tr><td class=muted>none</td></tr>"}</table>`;
       if (f.callback.deps.some(d => d.kind === "state")) h += `<h3>State (read, no trigger)</h3><table>${rows("state")}</table>`;
       h += `<h3>Outputs (updated)</h3><table>${rows("output")}</table>`;
@@ -444,6 +444,7 @@ function showDetails(n) {
   } else if (n.kind === "component") {
     const c = compById[n.id.slice(5)];
     h += `<h2>#${esc(c.id)}</h2>`;
+    if (c.id.endsWith("[*]")) h += `<p class="muted">Pattern-matching id: {"type": "${esc(c.id.slice(0, -3))}", "index": …}. All instances (e.g. one per filter row) are shown as one node; ALL = every instance, MATCH = the instance with the same index.</p>`;
     h += c.defs.map(d => `<div class="muted">${esc(d.type)} · ${fileLink(d.file)} line ${d.line}${d.func ? " in " + link(fnById[`fn:${d.file}::${d.func}`] ? `fn:${d.file}::${d.func}` : "", d.func + "()") : ""}</div>`).join("");
     const lst = (arr, cls) => arr.map(x => `<div><span class="pill ${cls}">${esc(x.prop)}</span> ${link(x.callback, fnById[x.callback].qualname + "()")}</div>`).join("") || "<div class=muted>—</div>";
     h += `<h3>Feeds callbacks (as Input)</h3>${lst(c.inputs, "in")}`;

@@ -51,6 +51,18 @@ def unparse(node) -> str:
         return "?"
 
 
+def id_name(node) -> str | None:
+    """Dash component id as a node name: "my-id", or "type[*]" for pattern-matching ids
+    ({"type": "x", "index": ALL/MATCH/n} -> "x[*]": all instances are shown as one node)."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Dict):
+        for k, v in zip(node.keys, node.values):
+            if isinstance(k, ast.Constant) and k.value == "type" and isinstance(v, ast.Constant):
+                return f"{v.value}[*]"
+    return None
+
+
 def module_name(rel: Path) -> str:
     parts = list(rel.with_suffix("").parts)
     if parts[-1] == "__init__":
@@ -159,11 +171,14 @@ class FileAnalyser:
                 deps, opts = [], {}
                 for a in d.args:
                     if isinstance(a, ast.Call) and unparse(a.func).split(".")[-1] in DEP_KINDS:
-                        cid = a.args[0].value if a.args and isinstance(a.args[0], ast.Constant) else unparse(a.args[0]) if a.args else "?"
+                        cid = (id_name(a.args[0]) or unparse(a.args[0])) if a.args else "?"
+                        wildcard = next((unparse(v) for k, v in zip(a.args[0].keys, a.args[0].values)
+                                         if isinstance(k, ast.Constant) and k.value == "index"), None) \
+                            if a.args and isinstance(a.args[0], ast.Dict) else None
                         prop = a.args[1].value if len(a.args) > 1 and isinstance(a.args[1], ast.Constant) else "?"
                         dup = any(k.arg == "allow_duplicate" for k in a.keywords)
                         deps.append({"kind": DEP_KINDS[unparse(a.func).split(".")[-1]], "id": cid, "prop": prop,
-                                     "allow_duplicate": dup})
+                                     "allow_duplicate": dup, "wildcard": wildcard})
                 for k in d.keywords:
                     opts[k.arg] = unparse(k.value)
                 info["kind"] = "callback"
@@ -254,16 +269,16 @@ def find_component_defs(an: FileAnalyser, known_ids: set[str], helpers: dict) ->
             continue
         fname = unparse(n.func)
         for k in n.keywords:
-            if k.arg == "id" and isinstance(k.value, ast.Constant) and isinstance(k.value.value, str):
-                defs.append({"id": k.value.value, "type": fname, "line": n.lineno, "func": enclosing(n.lineno)})
+            if k.arg == "id" and id_name(k.value):
+                defs.append({"id": id_name(k.value), "type": fname, "line": n.lineno, "func": enclosing(n.lineno)})
         target = an.resolve_call(n.func, None)
         if target and target["type"] == "project":
             key = f"{target['module']}::{target['qualname']}"
             if key in helpers:
-                pidx, ctype = helpers[key]
-                if pidx < len(n.args) and isinstance(n.args[pidx], ast.Constant):
-                    defs.append({"id": n.args[pidx].value, "type": f"{ctype} (via {target['qualname']}())",
-                                 "line": n.lineno, "func": enclosing(n.lineno)})
+                for pidx, ctype in helpers[key]:
+                    if pidx < len(n.args) and isinstance(n.args[pidx], ast.Constant):
+                        defs.append({"id": n.args[pidx].value, "type": f"{ctype} (via {target['qualname']}())",
+                                     "line": n.lineno, "func": enclosing(n.lineno)})
     return defs
 
 
@@ -277,7 +292,7 @@ def find_helpers(an: FileAnalyser) -> dict:
             if isinstance(n, ast.Call):
                 for k in n.keywords:
                     if k.arg == "id" and isinstance(k.value, ast.Name) and k.value.id in f["params"]:
-                        out[f"{an.module}::{q}"] = (f["params"].index(k.value.id), unparse(n.func))
+                        out.setdefault(f"{an.module}::{q}", []).append((f["params"].index(k.value.id), unparse(n.func)))
     return out
 
 

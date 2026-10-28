@@ -15,9 +15,11 @@ def control(label: str, component) -> html.Div:
     return html.Div([html.Label(label, className="control-label"), component], className="control")
 
 
-def kpi(label: str, value_id: str) -> html.Div:
-    return html.Div([html.Div(label, className="kpi-label"), html.Div("–", id=value_id, className="kpi-value")],
-                    className="kpi")
+def kpi(label: str, value_id: str, sub_id: str | None = None) -> html.Div:
+    children = [html.Div(label, className="kpi-label"), html.Div("–", id=value_id, className="kpi-value")]
+    if sub_id:
+        children.append(html.Div("", id=sub_id, className="kpi-sub"))
+    return html.Div(children, className="kpi")
 
 
 def kpi_static(label: str, value: str, sub: str = "") -> html.Div:
