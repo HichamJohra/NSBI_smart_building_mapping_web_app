@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NSBI Project Explorer</title>
+<style>
+:root{
+  --bg:#f4f6fa; --panel:#ffffff; --text:#1b2333; --muted:#5f6b7d; --border:#dde2ea; --accent:#1f4e79;
+  --edge:#9aa5b5; --up:#d9822b; --down:#2f80d1; --sel:#e0393e; --chip:#eef2f8; --canvas:#fbfcfe;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#14181f; --panel:#1c222c; --text:#e3e8f0; --muted:#97a3b6; --border:#2f3846; --accent:#7fb2e5;
+         --edge:#5d6878; --up:#f0a050; --down:#5aa7f0; --sel:#ff6b6b; --chip:#263040; --canvas:#171c24; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,-apple-system,sans-serif}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+header h1{font-size:16px;margin:0 8px 0 0;color:var(--accent);white-space:nowrap}
+.views{display:flex;gap:6px;flex-wrap:wrap}
+.views button,.tool{border:1px solid var(--border);background:var(--chip);color:var(--text);border-radius:6px;padding:6px 11px;cursor:pointer;font:inherit}
+.views button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.views button:hover,.tool:hover{border-color:var(--accent)}
+.opts{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.opts label{display:flex;gap:4px;align-items:center;cursor:pointer}
+#search{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:6px;padding:6px 10px;width:200px;font:inherit}
+main{display:grid;grid-template-columns:250px 1fr 340px;height:calc(100% - 56px)}
+aside{background:var(--panel);overflow:auto;padding:10px 12px}
+#left{border-right:1px solid var(--border)}
+#right{border-left:1px solid var(--border)}
+#center{position:relative;overflow:hidden;background:var(--canvas)}
+#hint{position:absolute;left:10px;top:8px;right:10px;font-size:12.5px;color:var(--muted);pointer-events:none}
+#legend{position:absolute;left:10px;bottom:8px;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);max-width:75%;background:color-mix(in srgb,var(--canvas) 85%,transparent);padding:4px 6px;border-radius:6px}
+#legend span{display:inline-flex;align-items:center;gap:5px}
+#legend i{display:inline-block;width:12px;height:12px;border-radius:3px;border:2px solid}
+#zoombar{position:absolute;right:10px;bottom:10px;display:flex;gap:6px}
+svg{width:100%;height:100%;display:block;cursor:grab}
+svg.dragging{cursor:grabbing}
+.edge{fill:none;stroke:var(--edge);stroke-width:1.3;opacity:.75}
+.edge.state{stroke-dasharray:5 4}
+.edge.fw{stroke-dasharray:2 4}
+.edge.back{stroke-dasharray:6 3}
+.edge.up{stroke:var(--up);stroke-width:2.4;opacity:1}
+.edge.down{stroke:var(--down);stroke-width:2.4;opacity:1}
+.elabel{font-size:10.5px;fill:var(--muted);display:none}
+.elabel.show{display:block}
+.elabel.up{fill:var(--up)} .elabel.down{fill:var(--down)}
+.node{cursor:pointer}
+.node rect{stroke-width:1.6}
+.node text{fill:var(--text);font-size:12.5px;pointer-events:none}
+.node text.sub{fill:var(--muted);font-size:10.5px}
+.node.kind-callback rect{stroke-width:3}
+.node.kind-ext rect,.node.kind-runtime rect{stroke-dasharray:4 3}
+.node.kind-data rect,.node.kind-script rect{stroke-width:2.6}
+.node.match rect{stroke:var(--sel)!important;stroke-width:3}
+.node rect.bar{stroke:none!important}
+.node.sel rect{stroke:var(--sel)!important;stroke-width:3.5}
+.node.upn rect{stroke:var(--up)!important;stroke-width:2.6}
+.node.downn rect{stroke:var(--down)!important;stroke-width:2.6}
+.dim{opacity:.13}
+.tree-link{fill:none;stroke:var(--edge);stroke-width:1.2}
+/* left tree */
+.ftree,.ftree ul{list-style:none;margin:0;padding-left:14px}
+.ftree{padding-left:0}
+.ftree li{margin:1px 0;white-space:nowrap}
+.ftree .f{cursor:pointer;padding:1px 5px;border-radius:4px;display:inline-block}
+.ftree .f:hover{background:var(--chip)}
+.ftree .f.active{background:var(--accent);color:#fff}
+.ftree .dir{font-weight:600;cursor:pointer}
+.ftree .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.ftree .meta{color:var(--muted);font-size:11px;margin-left:4px}
+h2{font-size:14px;margin:4px 0 8px;color:var(--accent)}
+h3{font-size:13px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+#details code,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12px}
+#details .sig{background:var(--chip);padding:6px 8px;border-radius:6px;word-break:break-word}
+#details table{width:100%;border-collapse:collapse;font-size:12.5px}
+#details td,#details th{border-bottom:1px solid var(--border);padding:4px 4px;text-align:left;vertical-align:top}
+#details th{color:var(--muted);font-weight:600}
+#details a{color:var(--accent);cursor:pointer;text-decoration:none}
+#details a:hover{text-decoration:underline}
+.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;background:var(--chip);margin:1px 3px 1px 0}
+.pill.in{background:color-mix(in srgb,var(--up) 22%,transparent)}
+.pill.out{background:color-mix(in srgb,var(--down) 22%,transparent)}
+.muted{color:var(--muted)}
+.foot{font-size:11px;color:var(--muted);margin-top:16px}
+@media (max-width:1000px){main{grid-template-columns:1fr;grid-template-rows:200px 60vh auto;height:auto}#left,#right{border:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>NSBI web app – project explorer</h1>
+  <div class="views" id="views">
+    <button data-view="structure" class="active">Folder &amp; file structure</button>
+    <button data-view="imports">Module imports</button>
+    <button data-view="calls">Function calls</button>
+    <button data-view="callbacks">Callback data flow (inputs → outputs)</button>
+  </div>
+  <div class="opts" id="opts"></div>
+  <input id="search" type="search" placeholder="Search nodes… (Enter = focus)">
+</header>
+<main>
+  <aside id="left"><h2>Files</h2><div id="ftree"></div></aside>
+  <section id="center">
+    <svg id="svg"><defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" style="fill:var(--edge)"/></marker>
+      <marker id="arr-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" style="fill:var(--up)"/></marker>
+      <marker id="arr-down" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" style="fill:var(--down)"/></marker>
+    </defs><g id="vp"></g></svg>
+    <div id="hint"></div>
+    <div id="legend"></div>
+    <div id="zoombar"><button class="tool" id="fit">Fit</button><button class="tool" id="zin">+</button><button class="tool" id="zout">−</button></div>
+  </section>
+  <aside id="right"><div id="details"></div></aside>
+</main>
+<script>
+const DATA = /*__DATA__*/null;
+
+/* ------------------------------------------------------------------ helpers */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const PALETTE = ["#2f80d1","#d9822b","#2e9e6a","#a04fc4","#c4473b","#1f9fae","#b58b12","#6a7bd8","#c2508d","#5b8c3a","#8c6d4f","#4a6b8a"];
+const fileColor = {};
+(() => { let i = 0;
+  const rank = p => p.endsWith(".py") ? (p.startsWith("app") ? 0 : 1) : 2;
+  const order = DATA.files.map(f => f.path).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  for (const p of order) fileColor[p] = PALETTE[i++ % PALETTE.length]; })();
+const KIND_COLOR = {ext:"#8a94a6", runtime:"#8a94a6", data:"#2e9e6a", script:"#b58b12", dir:"#6b7a90"};
+const colorOf = n => n.color || (n.file && fileColor[n.file]) || KIND_COLOR[n.kind] || "#6b7a90";
+const fnById = Object.fromEntries(DATA.functions.map(f => [f.id, f]));
+const compById = Object.fromEntries(DATA.components.map(c => [c.id, c]));
+const extByName = Object.fromEntries(DATA.external.map(e => [e.name, e]));
+const shortFile = p => p.split("/").pop();
+const measureCtx = document.createElement("canvas").getContext("2d");
+function textW(t, size = 12.5) { measureCtx.font = `${size}px "Segoe UI", system-ui, sans-serif`; return measureCtx.measureText(t).width; }
+
+/* ------------------------------------------------------------------ state */
+const S = { view: "structure", sel: null, selFile: null, chain: "full",
+  opt: { functions: true, external: false, runtime: false, helpers: false, labels: true, docs: !!DATA.include_docs_default } };
+const isTool = path => !!path && (DATA.tooling_prefixes || []).some(p => path.startsWith(p));
+const vis = path => S.opt.docs || !isTool(path);              // is this file's code shown?
+const extVisible = e => e.used_by.some(vis);
+let G = null;          // current graph {nodes, edges, map}
+let T = {k: 1, x: 0, y: 0};
+
+/* ------------------------------------------------------------------ graph builders */
+function addNode(g, n) { if (!g.map[n.id]) { g.map[n.id] = n; g.nodes.push(n); } return g.map[n.id]; }
+function addEdge(g, e) {
+  const key = e.source + ">" + e.target + ">" + (e.label || "") + ">" + (e.kind || "");
+  if (!g.map[e.source] || !g.map[e.target]) return;
+  if (g.ekeys.has(key)) { g.ekeys.get(key).count++; return; }
+  e.count = 1; g.ekeys.set(key, e); g.edges.push(e);
+}
+const newGraph = () => ({nodes: [], edges: [], map: {}, ekeys: new Map()});
+
+function funcNode(f) {
+  const kind = f.kind === "callback" ? "callback" : f.kind === "module" ? "module" : f.kind === "class" ? "class" : "func";
+  const label = f.kind === "module" ? `${shortFile(f.file)} · module level` : f.qualname + (f.kind === "class" ? "" : "()");
+  const sub = f.kind === "callback" ? `callback · ${f.file}` : f.tooling ? `${f.file} · tooling` : f.file;
+  return {id: f.id, label, sub, kind, file: f.file};
+}
+
+function buildStructure() {
+  const g = newGraph(); g.tree = true;
+  const rootName = DATA.root.split(/[\\/]/).pop();
+  function walk(node, parentId, depth) {
+    const id = node.type === "dir" ? "dir:" + node.path : "file:" + node.path;
+    const n = addNode(g, node.type === "dir"
+      ? {id, label: depth === 0 ? rootName : node.name + "/", sub: depth === 0 ? "project root" : "folder", kind: "dir"}
+      : {id, label: node.name, sub: node.lines != null ? `${node.lines} lines` : `${(node.size/1024).toFixed(1)} kB`,
+         kind: node.path.startsWith("data/") && node.ext !== ".md" ? "data" : "file", file: node.path});
+    n.depth = depth; n.parent = parentId; n.children = [];
+    if (parentId) g.map[parentId].children.push(id);
+    if (node.type === "dir") node.children.forEach(c => walk(c, id, depth + 1));
+    else if (S.opt.functions && DATA.file_info[node.path] && vis(node.path)) {
+      DATA.functions.filter(f => f.file === node.path && !f.parent && f.kind !== "module").forEach(f => {
+        const fn = addNode(g, {...funcNode(f), sub: f.kind === "callback" ? "callback" : f.kind === "class" ? "class" : `line ${f.line}`});
+        fn.depth = depth + 1; fn.parent = id; fn.children = []; n.children.push(fn.id);
+      });
+    }
+  }
+  walk(DATA.tree, null, 0);
+  g.nodes.forEach(n => { if (n.parent) g.edges.push({source: n.parent, target: n.id, kind: "tree", count: 1}); });
+  return g;
+}
+
+function buildImports() {
+  const g = newGraph();
+  for (const f of DATA.files) {
+    if ((f.ext === ".py" && vis(f.path)) || f.path.startsWith("assets/")) addNode(g, {id: "file:" + f.path, label: f.name, sub: isTool(f.path) ? f.path + " · tooling" : f.path, kind: "file", file: f.path});
+  }
+  for (const d of DATA.data_files) addNode(g, {id: d.id, label: shortFile(d.path), sub: "data file", kind: "data", file: d.path});
+  for (const w of DATA.writers) addNode(g, {id: w.id, label: shortFile(w.path), sub: "external script", kind: "script"});
+  if (S.opt.external) for (const e of DATA.external) if (extVisible(e)) addNode(g, {id: "ext:" + e.name, label: e.name, sub: "external library", kind: "ext"});
+  for (const i of DATA.imports) addEdge(g, {source: i.source, target: i.target, label: i.names.join(", "), kind: "import"});
+  for (const f of DATA.framework) addEdge(g, {source: f.source, target: f.target, label: f.label, kind: "fw"});
+  for (const r of DATA.data_reads) { const fn = fnById[r.target]; addEdge(g, {source: r.source, target: "file:" + fn.file, label: "read by " + fn.qualname + "()", kind: "data"}); }
+  for (const w of DATA.writers) for (const t of w.targets) addEdge(g, {source: w.id, target: t, label: "writes", kind: "data"});
+  return g;
+}
+
+function buildCalls() {
+  const g = newGraph();
+  for (const f of DATA.functions) if (vis(f.file)) addNode(g, funcNode(f));
+  for (const d of DATA.data_files) addNode(g, {id: d.id, label: shortFile(d.path), sub: "data file", kind: "data", file: d.path});
+  for (const w of DATA.writers) addNode(g, {id: w.id, label: shortFile(w.path), sub: "external script", kind: "script"});
+  if (S.opt.external) for (const e of DATA.external) if (extVisible(e)) addNode(g, {id: "ext:" + e.name, label: e.name, sub: "external library", kind: "ext"});
+  if (S.opt.runtime) {
+    addNode(g, {id: "runtime", label: "Dash runtime", sub: "calls layouts & callbacks", kind: "runtime"});
+    for (const f of DATA.functions) {
+      if (f.kind === "callback") addEdge(g, {source: "runtime", target: f.id, label: "triggers on Input change", kind: "fw"});
+      if (f.qualname === "layout" && DATA.file_info[f.file]?.page) addEdge(g, {source: "runtime", target: f.id, label: "page load", kind: "fw"});
+    }
+  }
+  for (const c of DATA.calls) addEdge(g, {source: c.source, target: c.target, label: c.kind === "ext" ? c.name.split(".").slice(-1)[0] + "()" : "", kind: c.kind});
+  for (const r of DATA.data_reads) addEdge(g, {source: r.source, target: r.target, label: "read_excel", kind: "data"});
+  for (const w of DATA.writers) for (const t of w.targets) addEdge(g, {source: w.id, target: t, label: "writes", kind: "data"});
+  // drop isolated <module level> nodes that call nothing shown
+  return pruneIsolated(g, n => n.kind === "module");
+}
+
+function pruneIsolated(g, pred) {
+  const deg = {}; g.edges.forEach(e => { deg[e.source] = (deg[e.source] || 0) + 1; deg[e.target] = (deg[e.target] || 0) + 1; });
+  g.nodes = g.nodes.filter(n => !(pred(n) && !deg[n.id]));
+  g.map = Object.fromEntries(g.nodes.map(n => [n.id, n])); return g;
+}
+
+function buildCallbacks() {
+  const g = newGraph();
+  for (const cb of DATA.callbacks) {
+    const f = fnById[cb.id];
+    addNode(g, {...funcNode(f), label: f.qualname + "()", sub: "callback · " + shortFile(f.file)});
+  }
+  for (const c of DATA.components) {
+    const def = c.defs[0];
+    const file = def ? def.file : (DATA.callbacks.find(cb => cb.deps.some(d => d.id === c.id))?.file);
+    const type = def ? def.type.replace(/^(dcc|html|dag)\./, "") : "component";
+    addNode(g, {id: "comp:" + c.id, label: "#" + c.id, sub: type, kind: "component", file});
+  }
+  for (const cb of DATA.callbacks) for (const d of cb.deps) {
+    if (d.kind === "output") addEdge(g, {source: cb.id, target: "comp:" + d.id, label: d.prop, kind: "output"});
+    else addEdge(g, {source: "comp:" + d.id, target: cb.id, label: d.prop, kind: d.kind});
+  }
+  if (S.opt.helpers) {
+    const seen = new Set(), stack = DATA.callbacks.map(c => c.id);
+    while (stack.length) { const id = stack.pop(); if (seen.has(id)) continue; seen.add(id);
+      for (const c of DATA.calls) if (c.source === id && c.kind === "call") {
+        addNode(g, funcNode(fnById[c.target])); addEdge(g, {source: id, target: c.target, label: "calls", kind: "call"}); stack.push(c.target); }
+    }
+    for (const r of DATA.data_reads) if (g.map[r.target]) { addNode(g, {id: r.source, label: shortFile(r.source), sub: "data file", kind: "data"}); addEdge(g, {source: r.source, target: r.target, label: "read_excel", kind: "data"}); }
+  }
+  return g;
+}
+
+/* ------------------------------------------------------------------ layouts */
+const NODE_H = 40, GAP_Y = 14, GAP_X = 90;
+function sizeNodes(g) { for (const n of g.nodes) { n.w = Math.max(textW(n.label, 12.5), textW(n.sub || "", 10.5)) + 26; n.h = NODE_H; } }
+
+function treeLayout(g) {
+  sizeNodes(g);
+  const depthW = {}; g.nodes.forEach(n => depthW[n.depth] = Math.max(depthW[n.depth] || 0, n.w));
+  const depthX = {}; let x = 0; Object.keys(depthW).map(Number).sort((a, b) => a - b).forEach(d => { depthX[d] = x; x += depthW[d] + 60; });
+  let y = 0;
+  function place(id) { const n = g.map[id];
+    n.x = depthX[n.depth];
+    if (!n.children.length) { n.y = y; y += n.h + 8; }
+    else { n.children.forEach(place); const ys = n.children.map(c => g.map[c].y); n.y = (Math.min(...ys) + Math.max(...ys)) / 2; } }
+  place(g.nodes[0].id);
+}
+
+function layeredLayout(g) {
+  sizeNodes(g);
+  // split into weakly connected parts, lay each out separately and stack them vertically
+  const adj = {}; g.nodes.forEach(n => adj[n.id] = []);
+  g.edges.forEach(e => { adj[e.source].push(e.target); adj[e.target].push(e.source); });
+  const seen = new Set(), parts = [];
+  for (const n of g.nodes) { if (seen.has(n.id)) continue; const comp = [], st = [n.id]; seen.add(n.id);
+    while (st.length) { const u = st.pop(); comp.push(u); for (const v of adj[u]) if (!seen.has(v)) { seen.add(v); st.push(v); } }
+    parts.push(comp); }
+  parts.sort((a, b) => b.length - a.length);
+  const singles = parts.filter(p => p.length === 1).flat(), multi = parts.filter(p => p.length > 1);
+  let yOff = 0;
+  for (const comp of multi) {
+    const set = new Set(comp);
+    layeredCore({nodes: comp.map(id => g.map[id]), edges: g.edges.filter(e => set.has(e.source)), map: g.map});
+    const minY = Math.min(...comp.map(id => g.map[id].y)), maxY = Math.max(...comp.map(id => g.map[id].y + g.map[id].h));
+    comp.forEach(id => g.map[id].y += yOff - minY); yOff += maxY - minY + 70;
+  }
+  if (singles.length) { let x = 0; const maxW = 1400;
+    let rowY = yOff; singles.forEach(id => { const n = g.map[id]; if (x + n.w > maxW) { x = 0; rowY += NODE_H + GAP_Y; }
+      n.x = x; n.y = rowY; n.layer = -1; x += n.w + 20; }); }
+}
+
+function layeredCore(g) {
+  const ids = g.nodes.map(n => n.id), succ = {}, pred = {};
+  ids.forEach(i => { succ[i] = new Set(); pred[i] = new Set(); });
+  g.edges.forEach(e => { if (e.source !== e.target) { succ[e.source].add(e.target); pred[e.target].add(e.source); } });
+  // cycle removal (DFS back edges)
+  const st = {}, back = new Set();
+  const dfs = u => { st[u] = 1; for (const v of succ[u]) { if (st[v] === 1) back.add(u + ">" + v); else if (!st[v]) dfs(v); } st[u] = 2; };
+  ids.filter(i => !pred[i].size).forEach(i => !st[i] && dfs(i)); ids.forEach(i => !st[i] && dfs(i));
+  const fs = {}, fp = {}; ids.forEach(i => { fs[i] = [...succ[i]].filter(v => !back.has(i + ">" + v)); fp[i] = []; });
+  ids.forEach(i => fs[i].forEach(v => fp[v].push(i)));
+  g.edges.forEach(e => e.back = back.has(e.source + ">" + e.target));
+  // longest-path layering (Kahn)
+  const indeg = {}, layer = {}; ids.forEach(i => { indeg[i] = fp[i].length; layer[i] = 0; });
+  const q = ids.filter(i => !indeg[i]), topo = [];
+  while (q.length) { const u = q.shift(); topo.push(u); for (const v of fs[u]) { layer[v] = Math.max(layer[v], layer[u] + 1); if (!--indeg[v]) q.push(v); } }
+  // pull nodes without predecessors next to their first successor
+  for (const u of [...topo].reverse()) if (!fp[u].length && fs[u].length) layer[u] = Math.min(...fs[u].map(v => layer[v])) - 1;
+  const minL = Math.min(...ids.map(i => layer[i])); ids.forEach(i => layer[i] -= minL);
+  const L = Math.max(...ids.map(i => layer[i])) + 1;
+  const layers = Array.from({length: L}, () => []);
+  g.nodes.slice().sort((a, b) => (a.file || a.kind).localeCompare(b.file || b.kind) || a.label.localeCompare(b.label))
+    .forEach(n => layers[layer[n.id]].push(n.id));
+  const pos = {}; const setPos = () => layers.forEach(l => l.forEach((id, i) => pos[id] = i - l.length / 2));
+  setPos();
+  for (let it = 0; it < 16; it++) {
+    const down = it % 2 === 0, seq = down ? [...Array(L).keys()] : [...Array(L).keys()].reverse();
+    for (const l of seq) {
+      const bc = {}; for (const id of layers[l]) {
+        const nb = down ? fp[id] : fs[id]; bc[id] = nb.length ? nb.reduce((s, v) => s + pos[v], 0) / nb.length : pos[id]; }
+      layers[l].sort((a, b) => bc[a] - bc[b]); layers[l].forEach((id, i) => pos[id] = i - layers[l].length / 2);
+    }
+  }
+  const lw = layers.map(l => Math.max(0, ...l.map(id => g.map[id].w)));
+  let x = 0; const lx = lw.map(w => { const v = x; x += w + GAP_X + 30; return v; });
+  layers.forEach((l, li) => { const total = l.length * (NODE_H + GAP_Y);
+    l.forEach((id, i) => { const n = g.map[id]; n.layer = li; n.x = lx[li] + (lw[li] - n.w) / 2; n.y = i * (NODE_H + GAP_Y) - total / 2; }); });
+}
+
+/* ------------------------------------------------------------------ rendering */
+const vp = $("#vp"), svg = $("#svg");
+function render() {
+  G = { structure: buildStructure, imports: buildImports, calls: buildCalls, callbacks: buildCallbacks }[S.view]();
+  if (G.tree) treeLayout(G); else layeredLayout(G);
+  vp.innerHTML = "";
+  const eLayer = el("g", {}, vp), lLayer = el("g", {}, vp), nLayer = el("g", {}, vp);
+  for (const e of G.edges) {
+    const a = G.map[e.source], b = G.map[e.target]; let d;
+    if (G.tree) { const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2, mx = (x1 + x2) / 2;
+      d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`; }
+    else if (b.layer > a.layer) { const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2, dx = Math.max(40, (x2 - x1) / 2);
+      d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`; }
+    else { const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x + b.w, y2 = b.y + b.h / 2, bulge = 70 + Math.abs(y2 - y1) * 0.15;
+      d = `M${x1},${y1} C${x1 + bulge},${y1} ${x2 + bulge},${y2} ${x2},${y2}`; e.back = true; }
+    const cls = ["edge", e.kind === "state" ? "state" : "", e.kind === "fw" ? "fw" : "", e.back ? "back" : ""].join(" ");
+    e.path = el("path", {d, class: G.tree ? "tree-link" : cls, "marker-end": G.tree ? "" : "url(#arr)"}, eLayer);
+    if (e.count > 1) e.path.setAttribute("stroke-width", Math.min(1.3 + e.count * 0.5, 4));
+    const t = el("title", {}, e.path); t.textContent = `${a.label} → ${b.label}${e.label ? "  [" + e.label + "]" : ""}${e.count > 1 ? "  ×" + e.count : ""}`;
+    if (e.label && !G.tree) { const len = e.path.getTotalLength(), p = e.path.getPointAtLength(len * 0.55);
+      e.lab = el("text", {x: p.x, y: p.y - 4, class: "elabel", "text-anchor": "middle"}, lLayer);
+      e.lab.textContent = e.label.length > 48 ? e.label.slice(0, 46) + "…" : e.label; }
+  }
+  for (const n of G.nodes) {
+    const c = colorOf(n);
+    const g = el("g", {class: `node kind-${n.kind}`, transform: `translate(${n.x},${n.y})`}, nLayer);
+    const r = el("rect", {width: n.w, height: n.h, rx: n.kind === "component" ? 18 : n.kind === "dir" ? 3 : 7}, g);
+    r.style.fill = `color-mix(in srgb, ${c} 14%, var(--panel))`; r.style.stroke = c;
+    if (n.kind === "callback") { const bar = el("rect", {x: 0, y: 0, width: 6, height: n.h, rx: 3, class: "bar"}, g); bar.style.fill = c; bar.style.stroke = "none"; }
+    const t1 = el("text", {x: 13, y: 17}, g); t1.textContent = n.label;
+    const t2 = el("text", {x: 13, y: 32, class: "sub"}, g); t2.textContent = n.sub || "";
+    g.addEventListener("click", ev => { ev.stopPropagation(); select(n.id); });
+    n.g = g;
+  }
+  renderLegend(); renderHint();
+  S.sel = S.sel && G.map[S.sel] ? S.sel : null;
+  applyHighlight(); fit();
+  if (!S.sel && !S.selFile) showOverview();
+}
+
+/* ------------------------------------------------------------------ highlight */
+function reach(start, dir, full) {
+  const out = new Set(), stack = [start];
+  while (stack.length) { const u = stack.pop();
+    for (const e of G.edges) { const [from, to] = dir === "down" ? [e.source, e.target] : [e.target, e.source];
+      if (from === u && !out.has(to) && to !== start) { out.add(to); if (full) stack.push(to); } } }
+  return out;
+}
+function applyHighlight() {
+  const anySel = S.sel || S.selFile;
+  let up = new Set(), down = new Set(), focus = new Set();
+  if (S.sel) { focus.add(S.sel);
+    if (G.tree) { let p = G.map[S.sel].parent; while (p) { up.add(p); p = G.map[p].parent; }
+      const st = [...G.map[S.sel].children]; while (st.length) { const c = st.pop(); down.add(c); st.push(...G.map[c].children); } }
+    else { up = reach(S.sel, "up", S.chain === "full"); down = reach(S.sel, "down", S.chain === "full"); } }
+  else if (S.selFile) G.nodes.forEach(n => { if (n.file === S.selFile || n.id === "file:" + S.selFile) focus.add(n.id); });
+  for (const n of G.nodes) {
+    n.g.classList.toggle("sel", focus.has(n.id));
+    n.g.classList.toggle("upn", up.has(n.id) && !focus.has(n.id));
+    n.g.classList.toggle("downn", down.has(n.id) && !focus.has(n.id));
+    n.g.classList.toggle("dim", !!anySel && !focus.has(n.id) && !up.has(n.id) && !down.has(n.id));
+  }
+  for (const e of G.edges) {
+    const isUp = !G.tree && !!S.sel && up.has(e.source) && (up.has(e.target) || e.target === S.sel);
+    const isDown = !G.tree && !!S.sel && down.has(e.target) && (down.has(e.source) || e.source === S.sel);
+    const touchFocus = S.selFile && (focus.has(e.source) || focus.has(e.target));
+    e.path.classList.toggle("up", !!isUp); e.path.classList.toggle("down", !!isDown && !isUp);
+    e.path.setAttribute("marker-end", G.tree ? "" : isUp ? "url(#arr-up)" : isDown ? "url(#arr-down)" : "url(#arr)");
+    e.path.classList.toggle("dim", !!anySel && !isUp && !isDown && !touchFocus &&
+      !(G.tree && S.sel && (up.has(e.target) || e.target === S.sel || down.has(e.target))));
+    if (e.lab) { e.lab.classList.toggle("show", S.opt.labels && (!!isUp || !!isDown || !!touchFocus || (!anySel && S.view === "callbacks")));
+      e.lab.classList.toggle("up", !!isUp); e.lab.classList.toggle("down", !!isDown && !isUp); }
+  }
+}
+function select(id) {
+  S.sel = id === S.sel ? null : id; S.selFile = null;
+  document.querySelectorAll(".ftree .f").forEach(f => f.classList.remove("active"));
+  applyHighlight(); S.sel ? showDetails(G.map[S.sel]) : showOverview();
+}
+svg.addEventListener("click", () => { if (moved) return; S.sel = null; S.selFile = null; applyHighlight(); showOverview();
+  document.querySelectorAll(".ftree .f").forEach(f => f.classList.remove("active")); });
+
+/* ------------------------------------------------------------------ details panel */
+const link = (id, text) => `<a data-go="${esc(id)}">${esc(text)}</a>`;
+function edgesOf(id, dir) { return G.edges.filter(e => dir === "in" ? e.target === id : e.source === id); }
+function showDetails(n) {
+  const D = $("#details"); let h = "";
+  const fileLink = p => `<a data-file="${esc(p)}">${esc(p)}</a>`;
+  if (n.kind === "func" || n.kind === "callback" || n.kind === "class" || n.kind === "module") {
+    const f = fnById[n.id];
+    h += `<h2>${esc(n.label)}</h2><div class="muted">${f.kind} · ${fileLink(f.file)} · line ${f.line}${f.end ? "–" + f.end : ""}</div>`;
+    if (f.doc) h += `<p>${esc(f.doc)}</p>`;
+    if (f.signature) h += `<div class="sig mono">${esc(f.signature)}</div>`;
+    if (f.decorators?.length && !f.callback) h += `<h3>Decorators</h3><div class="mono">${f.decorators.map(esc).join("<br>")}</div>`;
+    if (f.callback) {
+      const rows = k => f.callback.deps.filter(d => d.kind === k).map(d =>
+        `<tr><td>${link("comp:" + d.id, "#" + d.id)}</td><td class="mono">${esc(d.prop)}${d.allow_duplicate ? " (dup)" : ""}</td></tr>`).join("");
+      h += `<h3>Inputs (trigger)</h3><table>${rows("input") || "<tr><td class=muted>none</td></tr>"}</table>`;
+      if (f.callback.deps.some(d => d.kind === "state")) h += `<h3>State (read, no trigger)</h3><table>${rows("state")}</table>`;
+      h += `<h3>Outputs (updated)</h3><table>${rows("output")}</table>`;
+      if (Object.keys(f.callback.options).length) h += `<div class="muted mono" style="margin-top:6px">${Object.entries(f.callback.options).map(([k, v]) => esc(k + "=" + v)).join(", ")}</div>`;
+    }
+    const callsOut = DATA.calls.filter(c => c.source === n.id && c.kind === "call");
+    const uniq = arr => [...new Map(arr.map(x => [x, x])).keys()];
+    const callees = uniq(callsOut.map(c => c.target)), callers = uniq(DATA.calls.filter(c => c.target === n.id).map(c => c.source));
+    h += `<h3>Calls (project)</h3>${callees.map(t => `<div>${link(t, fnById[t].qualname + "()")} <span class="muted">${esc(fnById[t].file)}</span></div>`).join("") || "<div class=muted>—</div>"}`;
+    h += `<h3>Called by</h3>${callers.map(t => `<div>${link(t, fnById[t].qualname)} <span class="muted">${esc(fnById[t].file)}</span></div>`).join("") || `<div class=muted>${f.kind === "callback" ? "Dash runtime (when an Input changes)" : f.qualname === "layout" ? "Dash runtime (page load)" : "—"}</div>`}`;
+    const ext = uniq(DATA.calls.filter(c => c.source === n.id && c.kind === "ext").map(c => c.name));
+    if (ext.length) h += `<h3>External calls</h3><div class="mono">${ext.map(esc).join("<br>")}</div>`;
+    const rd = DATA.data_reads.filter(r => r.target === n.id); if (rd.length) h += `<h3>Reads data</h3>${rd.map(r => link(r.source, r.source.replace("data:", ""))).join("<br>")}`;
+  } else if (n.kind === "component") {
+    const c = compById[n.id.slice(5)];
+    h += `<h2>#${esc(c.id)}</h2>`;
+    h += c.defs.map(d => `<div class="muted">${esc(d.type)} · ${fileLink(d.file)} line ${d.line}${d.func ? " in " + link(fnById[`fn:${d.file}::${d.func}`] ? `fn:${d.file}::${d.func}` : "", d.func + "()") : ""}</div>`).join("");
+    const lst = (arr, cls) => arr.map(x => `<div><span class="pill ${cls}">${esc(x.prop)}</span> ${link(x.callback, fnById[x.callback].qualname + "()")}</div>`).join("") || "<div class=muted>—</div>";
+    h += `<h3>Feeds callbacks (as Input)</h3>${lst(c.inputs, "in")}`;
+    if (c.states.length) h += `<h3>Read as State by</h3>${lst(c.states, "in")}`;
+    h += `<h3>Updated by callbacks (as Output)</h3>${lst(c.outputs, "out")}`;
+  } else if (n.kind === "ext") {
+    const e = extByName[n.label];
+    h += `<h2>${esc(e.name)}</h2><div class="muted">External library</div><h3>Imported by</h3>${e.used_by.map(fileLink).join("<br>")}`;
+    if (e.calls.length) h += `<h3>Functions / classes used</h3><div class="mono">${e.calls.map(esc).join("<br>")}</div>`;
+  } else if (n.kind === "data" || n.id.startsWith("data:")) {
+    const d = DATA.data_files.find(x => x.id === n.id || "file:" + x.path === n.id);
+    if (d) { h += `<h2>${esc(d.path)}</h2><div class="muted">${(d.size / 1024).toFixed(1)} kB</div>`;
+      h += `<h3>Sheets</h3><table><tr><th>Sheet</th><th>Rows</th><th>Cols</th></tr>${d.sheets.map(s => `<tr><td>${esc(s.name)}</td><td>${s.rows}</td><td>${s.cols}</td></tr>`).join("")}</table>`;
+      h += `<h3>Read by</h3>${DATA.data_reads.filter(r => r.source === d.id).map(r => link(r.target, fnById[r.target].qualname + "()")).join("<br>") || "—"}`;
+      const w = DATA.writers.filter(x => x.targets.includes(d.id)); if (w.length) h += `<h3>Written by</h3>${w.map(x => esc(x.path) + "<div class=muted>" + esc(x.doc) + "</div>").join("")}`;
+      for (const s of d.sheets) if (s.header.length) h += `<h3>Columns · ${esc(s.name)}</h3><div class="mono" style="font-size:11px">${s.header.map(esc).join(", ")}</div>`; }
+    else h += fileDetails(n.file);
+  } else if (n.kind === "script") {
+    const w = DATA.writers.find(x => x.id === n.id);
+    h += `<h2>${esc(w.path)}</h2><div class="muted">External script (outside the repository)</div><p>${esc(w.doc)}</p><h3>Writes</h3>${w.targets.map(t => link(t, t.replace("data:", ""))).join("<br>")}`;
+  } else if (n.kind === "runtime") {
+    h += `<h2>Dash runtime</h2><p>Dash itself calls each page's <code>layout()</code> when the page is opened, and calls a callback whenever one of its Input properties changes in the browser.</p>`;
+  } else if (n.kind === "dir") {
+    h += `<h2>${esc(n.label)}</h2><div class="muted">${n.children.length} item(s)</div>`;
+  } else h += fileDetails(n.file);
+  h += `<div class="foot">Orange = upstream (what this depends on / feeds it) · Blue = downstream (what depends on it / it feeds). Click empty canvas to clear.</div>`;
+  D.innerHTML = h; wireLinks(D);
+}
+function fileDetails(path) {
+  const info = DATA.file_info[path], f = DATA.files.find(x => x.path === path); let h = `<h2>${esc(path)}</h2>`;
+  if (!f) return h;
+  h += `<div class="muted">${f.lines != null ? f.lines + " lines · " : ""}${(f.size / 1024).toFixed(1)} kB</div>`;
+  if (!info) { const fw = DATA.framework.filter(x => x.target === "file:" + path);
+    return h + (fw.length ? `<p>${fw.map(x => esc(x.label)).join("<br>")}</p>` : ""); }
+  if (info.doc) h += `<p>${esc(info.doc)}</p>`;
+  if (info.page) h += `<h3>Dash page</h3><div class="mono">${Object.entries(info.page).map(([k, v]) => esc(k + " = " + v)).join("<br>")}</div>`;
+  const fns = DATA.functions.filter(x => x.file === path && x.kind !== "module");
+  h += `<h3>Functions (${fns.length})</h3>${fns.map(x => `<div>${link(x.id, x.qualname + (x.kind === "class" ? "" : "()"))} <span class="pill">${x.kind}</span></div>`).join("")}`;
+  if (info.constants.length) h += `<h3>Constants</h3><div class="mono">${info.constants.map(esc).join(", ")}</div>`;
+  h += `<h3>Imports</h3><table>${info.imports.map(i => `<tr><td class="mono">${esc(i.module)}</td><td class="mono muted">${esc(i.names.join(", "))}</td></tr>`).join("")}</table>`;
+  const usedBy = DATA.imports.filter(i => i.target === "file:" + path).map(i => i.source.slice(5));
+  h += `<h3>Imported by</h3>${usedBy.map(p => `<a data-file="${esc(p)}">${esc(p)}</a>`).join("<br>") || "<div class=muted>—</div>"}`;
+  const cbs = DATA.callbacks.filter(c => c.file === path);
+  if (cbs.length) h += `<h3>Callbacks (${cbs.length})</h3>${cbs.map(c => `<div>${link(c.id, c.name + "()")}: ${c.deps.filter(d => d.kind !== "output").map(d => `<span class="pill in">${esc(d.id)}.${esc(d.prop)}</span>`).join("")} → ${c.deps.filter(d => d.kind === "output").map(d => `<span class="pill out">${esc(d.id)}.${esc(d.prop)}</span>`).join("")}</div>`).join("")}`;
+  return h;
+}
+function wireLinks(root) {
+  root.querySelectorAll("a[data-go]").forEach(a => a.addEventListener("click", () => goTo(a.dataset.go)));
+  root.querySelectorAll("a[data-file]").forEach(a => a.addEventListener("click", () => selectFile(a.dataset.file)));
+}
+function goTo(id) {
+  if (!id) return;
+  if (fnById[id]?.tooling && !S.opt.docs) { S.opt.docs = true; renderOpts(); }
+  if (!G.map[id]) { const v = id.startsWith("comp:") ? "callbacks" : id.startsWith("fn:") ? (DATA.callbacks.some(c => c.id === id) && S.view === "callbacks" ? "callbacks" : "calls") : id.startsWith("data:") ? "calls" : S.view;
+    setView(v); }
+  if (G.map[id]) { S.sel = null; select(id); centerOn(G.map[id]); }
+}
+function showOverview() {
+  const appPy = DATA.files.filter(f => f.ext === ".py" && !isTool(f.path)), toolPy = DATA.files.filter(f => f.ext === ".py" && isTool(f.path));
+  const nPy = appPy.length + (toolPy.length ? ` app + ${toolPy.length} docs tooling` : "");
+  const lines = appPy.reduce((s, f) => s + (f.lines || 0), 0);
+  const nFn = DATA.functions.filter(f => f.kind === "function" && !f.tooling).length +
+    (DATA.functions.some(f => f.tooling) ? ` app + ${DATA.functions.filter(f => f.kind === "function" && f.tooling).length} docs tooling` : "");
+  const pages = Object.entries(DATA.file_info).filter(([, v]) => v.page).map(([p, v]) => `<tr><td class="mono">${esc(v.page.path)}</td><td>${esc(v.page.name)}</td><td><a data-file="${esc(p)}">${esc(p)}</a></td></tr>`).join("");
+  $("#details").innerHTML = `<h2>Project overview</h2>
+    <table><tr><td>Python files</td><td>${nPy} (app: ${lines} lines)</td></tr><tr><td>Functions</td><td>${nFn}</td></tr>
+    <tr><td>Dash callbacks</td><td>${DATA.callbacks.length}</td></tr><tr><td>Dash component ids</td><td>${DATA.components.length}</td></tr>
+    <tr><td>External libraries</td><td>${DATA.external.filter(e => e.used_by.some(p => !isTool(p))).map(e => esc(e.name)).join(", ")}${
+      DATA.external.some(e => !e.used_by.some(p => !isTool(p))) ? `<div class="muted">docs tooling only: ${DATA.external.filter(e => !e.used_by.some(p => !isTool(p))).map(e => esc(e.name)).join(", ")}</div>` : ""}</td></tr></table>
+    <h3>Pages</h3><table><tr><th>URL</th><th>Name</th><th>File</th></tr>${pages}</table>
+    <h3>How to use</h3><ul style="padding-left:18px;margin:0">
+    <li>Switch views with the buttons at the top.</li><li>Click a node to trace its dependencies: <b style="color:var(--up)">orange</b> = upstream, <b style="color:var(--down)">blue</b> = downstream.</li>
+    <li>Click a file on the left to highlight everything it contains.</li><li>Scroll to zoom, drag to pan, hover an edge for its label.</li></ul>
+    <div class="foot">Generated ${esc(DATA.generated)} from <span class="mono">${esc(DATA.root)}</span> by static analysis (the app is not executed). Re-run <span class="mono">docs/project_graph_explorer/build_project_explorer.py</span> after code changes.</div>`;
+  wireLinks($("#details"));
+}
+
+/* ------------------------------------------------------------------ left file tree */
+function renderFileTree() {
+  const build = node => {
+    if (node.type === "file") return `<li><span class="f" data-file="${esc(node.path)}"><span class="dot" style="background:${fileColor[node.path]}"></span>${esc(node.name)}<span class="meta">${node.lines != null ? node.lines + " l" : ""}</span></span></li>`;
+    return `<li><span class="dir">▾ ${esc(node.path ? node.name : DATA.root.split(/[\\/]/).pop())}</span><ul>${node.children.map(build).join("")}</ul></li>`;
+  };
+  $("#ftree").innerHTML = `<ul class="ftree">${build(DATA.tree)}</ul>`;
+  $("#ftree").querySelectorAll(".f").forEach(f => f.addEventListener("click", () => selectFile(f.dataset.file)));
+  $("#ftree").querySelectorAll(".dir").forEach(d => d.addEventListener("click", () => {
+    const ul = d.nextElementSibling; const hide = ul.style.display !== "none"; ul.style.display = hide ? "none" : ""; d.textContent = (hide ? "▸ " : "▾ ") + d.textContent.slice(2); }));
+}
+function selectFile(path) {
+  S.sel = null; S.selFile = path;
+  document.querySelectorAll(".ftree .f").forEach(f => f.classList.toggle("active", f.dataset.file === path));
+  const n = G.map["file:" + path];
+  if (n && (G.tree || S.view === "imports")) { S.selFile = null; S.sel = n.id; applyHighlight(); showDetails(n); centerOn(n); return; }
+  applyHighlight(); $("#details").innerHTML = fileDetails(path); wireLinks($("#details"));
+  const first = G.nodes.find(x => x.file === path); if (first) centerOn(first);
+}
+
+/* ------------------------------------------------------------------ toolbar, legend, hint */
+const VIEW_OPTS = {
+  structure: [["functions", "Show functions in files"], ["docs", "Include docs/ tooling code"]],
+  imports: [["external", "External libraries"], ["docs", "Include docs/ tooling code"], ["labels", "Edge labels"]],
+  calls: [["external", "External libraries"], ["runtime", "Dash runtime"], ["docs", "Include docs/ tooling code"], ["labels", "Edge labels"]],
+  callbacks: [["helpers", "Include functions called by callbacks"], ["labels", "Property labels"]],
+};
+const HINTS = {
+  structure: "Folder → file → top-level function. Click a file or function for details.",
+  imports: "Arrow A → B: file A imports from file B. Dotted: Dash conventions (pages auto-registered, assets auto-loaded). Data file → reader; script → data it writes.",
+  calls: "Arrow A → B: function A calls function B. Callbacks have a thick bar. Excel file → get_data() that reads it.",
+  callbacks: "Component property (Input) → callback() → component property (Output). Chains show how a change propagates, e.g. a filter → #db-ids store → map, plot, table.",
+};
+function renderOpts() {
+  const o = $("#opts");
+  o.innerHTML = VIEW_OPTS[S.view].map(([k, lab]) => `<label><input type="checkbox" data-opt="${k}" ${S.opt[k] ? "checked" : ""}>${lab}</label>`).join("") +
+    (S.view !== "structure" ? `<label title="Trace the whole chain or only direct neighbours"><input type="checkbox" id="chain" ${S.chain === "full" ? "checked" : ""}>Full chain</label>` : "");
+  o.querySelectorAll("input[data-opt]").forEach(i => i.addEventListener("change", () => { S.opt[i.dataset.opt] = i.checked; render(); }));
+  const ch = $("#chain"); if (ch) ch.addEventListener("change", () => { S.chain = ch.checked ? "full" : "direct"; applyHighlight(); });
+}
+function renderLegend() {
+  const files = [...new Set(G.nodes.map(n => n.file).filter(f => f && fileColor[f] && f.endsWith(".py")))].sort();
+  let h = files.map(f => `<span><i style="border-color:${fileColor[f]};background:color-mix(in srgb,${fileColor[f]} 14%,var(--panel))"></i>${esc(f)}</span>`).join("");
+  if (S.view === "callbacks") h += `<span><i style="border-radius:8px;border-color:var(--muted)"></i>component</span><span><i style="border-width:3px;border-color:var(--muted)"></i>callback</span><span>— — State</span>`;
+  if (S.view !== "structure") h += `<span style="color:var(--up)">■ upstream</span><span style="color:var(--down)">■ downstream</span>`;
+  $("#legend").innerHTML = h;
+}
+function renderHint() { $("#hint").textContent = HINTS[S.view]; }
+function setView(v) {
+  S.view = v; S.sel = null; S.selFile = null;
+  document.querySelectorAll("#views button").forEach(b => b.classList.toggle("active", b.dataset.view === v));
+  renderOpts(); render();
+  history.replaceState(null, "", "#view=" + v);
+}
+document.querySelectorAll("#views button").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+$("#search").addEventListener("input", e => { const q = e.target.value.trim().toLowerCase();
+  G.nodes.forEach(n => n.g.classList.toggle("match", !!q && (n.label + " " + (n.sub || "")).toLowerCase().includes(q))); });
+$("#search").addEventListener("keydown", e => { if (e.key !== "Enter") return; const q = e.target.value.trim().toLowerCase();
+  const n = G.nodes.find(n => (n.label + " " + (n.sub || "")).toLowerCase().includes(q)); if (n) { S.sel = null; select(n.id); centerOn(n); } });
+
+/* ------------------------------------------------------------------ pan & zoom */
+function applyT() { vp.setAttribute("transform", `translate(${T.x},${T.y}) scale(${T.k})`); }
+function fit() {
+  const b = vp.getBBox(), W = svg.clientWidth, H = svg.clientHeight; if (!b.width) return;
+  T.k = Math.min(1.4, Math.min((W - 40) / b.width, (H - 90) / b.height)); T.x = (W - b.width * T.k) / 2 - b.x * T.k; T.y = (H - b.height * T.k) / 2 - b.y * T.k + 10; applyT();
+}
+function centerOn(n) { const W = svg.clientWidth, H = svg.clientHeight; T.k = Math.max(T.k, 0.8);
+  T.x = W / 2 - (n.x + n.w / 2) * T.k; T.y = H / 2 - (n.y + n.h / 2) * T.k; applyT(); }
+function zoomAt(f, cx, cy) { const k = Math.max(0.08, Math.min(4, T.k * f)); T.x = cx - (cx - T.x) * (k / T.k); T.y = cy - (cy - T.y) * (k / T.k); T.k = k; applyT(); }
+svg.addEventListener("wheel", e => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top); }, {passive: false});
+let drag = null, moved = false;
+svg.addEventListener("mousedown", e => { drag = {x: e.clientX, y: e.clientY, tx: T.x, ty: T.y}; moved = false; svg.classList.add("dragging"); });
+window.addEventListener("mousemove", e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; T.x = drag.tx + dx; T.y = drag.ty + dy; applyT(); });
+window.addEventListener("mouseup", () => { drag = null; svg.classList.remove("dragging"); setTimeout(() => moved = false, 0); });
+$("#fit").addEventListener("click", fit);
+$("#zin").addEventListener("click", () => zoomAt(1.25, svg.clientWidth / 2, svg.clientHeight / 2));
+$("#zout").addEventListener("click", () => zoomAt(0.8, svg.clientWidth / 2, svg.clientHeight / 2));
+window.addEventListener("resize", fit);
+
+renderFileTree();
+(() => { const h = new URLSearchParams(location.hash.slice(1)); const v = h.get("view");
+  if (v && VIEW_OPTS[v]) { S.view = v; document.querySelectorAll("#views button").forEach(b => b.classList.toggle("active", b.dataset.view === v)); }
+  renderOpts(); render(); showOverview();
+  const sel = h.get("sel"); if (sel) goTo(sel); })();
+</script>
+</body>
+</html>

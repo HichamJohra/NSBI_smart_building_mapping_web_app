@@ -105,7 +105,7 @@ def layout(**_):
                                                       placeholder="Single colour")),
                 control("Colour scale (numeric)", dcc.Dropdown(id="db-cscale", options=COLORSCALES, value="Viridis",
                                                                clearable=False)),
-                control("Base map", dcc.Dropdown(id="db-basemap", options=BASEMAPS, value="carto-positron",
+                control("Map background", dcc.Dropdown(id="db-basemap", options=BASEMAPS, value="carto-positron",
                                                  clearable=False)),
             ]),
             graph("db-map"),
@@ -161,8 +161,8 @@ def layout(**_):
 
     return html.Div([
         html.Div(className="page-head", children=[
-            html.H1("Smart buildings in Norway"),
-            html.P("Smart Readiness Indicator (SRI) and Smart by Powerhouse (SbP) assessments of real buildings."),
+            html.H1("Smart buildings in the World"),
+            html.P("Smartness, performance, and characteristics of real buildings."),
         ]),
         html.Div(className="kpi-row", children=[
             kpi("Buildings shown", "db-kpi-n"),

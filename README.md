@@ -26,6 +26,18 @@ python app.py                 # -> http://127.0.0.1:8050
 | `components/figures.py` | Plotly figure builders |
 | `assets/style.css` | Styling (auto-loaded by Dash) |
 | `data/smart_buildings_dataset.xlsx` | The dataset |
+| `docs/` | Documentation: architecture, data model, development guide |
+| `docs/project_graph_explorer/` | Interactive HTML map of the code + script to regenerate it |
+
+## Documentation
+
+See [docs/README.md](docs/README.md). For an interactive overview of files, imports, function calls and
+callback inputs/outputs, open `docs/project_graph_explorer/NSBI_project_explorer.html` in a browser.
+Regenerate it after code changes:
+
+```bash
+.venv\Scripts\python.exe docs/project_graph_explorer/build_project_explorer.py
+```
 
 ## Dataset
 

@@ -1,4 +1,4 @@
-"""NSBI Smart Building Mapping — multi-page Dash web app.
+"""NSBI Smart Building Mapping — multipage Dash web app.
 
 Run locally:  python app.py   ->  http://127.0.0.1:8050
 """
