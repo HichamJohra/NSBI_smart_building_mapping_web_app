@@ -38,7 +38,15 @@ def navbar() -> html.Header:
     )
 
 
-app.layout = html.Div([navbar(), html.Main(dash.page_container, className="container")])
+# Per-tab memory of the dashboard filter rows (the rows are created dynamically, so Dash's built-in
+# persistence cannot restore them). storage_type="session" = the browser's sessionStorage: kept while moving
+# between pages and on reload, separate for every browser tab and every user, cleared when the tab is closed.
+# Simple dropdowns use Dash persistence (components.ui.PERSIST), which uses the same sessionStorage.
+app.layout = html.Div([
+    dcc.Store(id="mem-db-filters", storage_type="session"),
+    navbar(),
+    html.Main(dash.page_container, className="container"),
+])
 
 
 if __name__ == "__main__":

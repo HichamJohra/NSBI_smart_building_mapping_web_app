@@ -1,4 +1,6 @@
 """Main dashboard: filters, bubble map, statistics, XY correlation plot and full dataset table."""
+from typing import Any
+
 import dash
 import dash_ag_grid as dag
 import numpy as np
@@ -8,7 +10,7 @@ from dash import ALL, MATCH, Input, Output, Patch, State, callback, ctx, dcc, ht
 from components.data import (columns_for, dropdown_options, fmt, get_data, has_data, is_numeric, label, tooltip,
                              unit)
 from components.figures import map_figure, scatter_figure
-from components.ui import card, control, graph, kpi
+from components.ui import PERSIST, card, control, graph, kpi
 
 dash.register_page(__name__, path="/", name="Dashboard", order=0, title="Dashboard · NSBI Smart Buildings")
 
@@ -21,7 +23,17 @@ BASEMAPS = [
 COLORSCALES = ["Viridis", "RdYlGn", "Plasma", "Blues", "Turbo"]
 DEFAULT_CAT_FILTER = "main_reference"        # parameter pre-selected in the first category filter
 STAT_DEFAULTS = ["sri_total_pct", "sbp_level"]  # parameters pre-selected in the two statistics cards
-HIDDEN = {"display": "none"}
+HIDDEN: Any = {"display": "none"}
+
+# Component settings as module constants. Typed as Any because Dash 3+ / dash-ag-grid declare these props as
+# TypedDicts, which makes IDEs flag plain dict literals (the values themselves are standard options).
+SLIDER_TOOLTIP: Any = {"placement": "bottom", "always_visible": True}
+XY_OPTIONS: Any = [{"label": " Linear fit", "value": "trend"}, {"label": " Labels", "value": "labels"}]
+GRID_DEFAULT_COLDEF: Any = {"sortable": True, "filter": True, "floatingFilter": True, "resizable": True}
+GRID_OPTIONS: Any = {"pagination": True, "paginationPageSize": 20, "enableCellTextSelection": True,
+                     "tooltipShowDelay": 300}
+GRID_CSV_EXPORT: Any = {"fileName": "nsbi_smart_buildings.csv"}
+GRID_STYLE: Any = {"height": "560px", "width": "100%"}
 
 # Hover descriptions of the KPI cards (all KPIs are computed on the buildings matching the filters)
 KPI_HELP = {
@@ -35,7 +47,7 @@ KPI_HELP = {
 }
 
 
-def _pick(preferred: str, options: list[str], fallback_index: int = 0):
+def _pick(preferred: str | None, options: list[str], fallback_index: int = 0) -> str | None:
     """Default dropdown value: the preferred parameter, else a fallback that has data."""
     options = [o for o in options if has_data(o)]
     if preferred in options:
@@ -43,7 +55,7 @@ def _pick(preferred: str, options: list[str], fallback_index: int = 0):
     return options[fallback_index] if len(options) > fallback_index else (options[0] if options else None)
 
 
-def _cat_values(col: str | None) -> list[dict]:
+def _cat_values(col: str | None) -> list[Any]:
     if not col:
         return []
     vals = get_data().buildings[col].dropna().astype(str).unique()
@@ -69,30 +81,34 @@ def _column_defs(df: pd.DataFrame) -> list[dict]:
 
 
 # ----------------------------------------------------------------- dynamic filter rows
-def _cat_row(index: int, param: str | None = None) -> html.Div:
-    """One category filter: parameter dropdown + values dropdown + remove button."""
+def _cat_row(index: int, param: str | None = None, values: list | None = None) -> html.Div:
+    """One category filter: parameter dropdown + values dropdown + remove button (values: restored selection)."""
     cols = columns_for("filter", "categorical", include_empty=True)
     param = param if param in cols else None
+    allowed = {o["value"] for o in _cat_values(param)}
+    values = [v for v in (values or []) if v in allowed]
     return html.Div(id={"type": "catf-row", "index": index}, className="filter-row", children=[
         dcc.Dropdown(id={"type": "catf-param", "index": index}, options=dropdown_options(cols), value=param,
                      placeholder="Choose a category parameter…"),
-        dcc.Dropdown(id={"type": "catf-vals", "index": index}, options=_cat_values(param), value=[], multi=True,
+        dcc.Dropdown(id={"type": "catf-vals", "index": index}, options=_cat_values(param), value=values, multi=True,
                      placeholder="All values"),
         html.Button("✕", id={"type": "catf-del", "index": index}, className="btn-icon", title="Remove this filter"),
     ])
 
 
-def _num_row(index: int, param: str | None = None) -> html.Div:
-    """One numeric filter: parameter dropdown + range slider + remove button."""
+def _num_row(index: int, param: str | None = None, rng: list | None = None) -> html.Div:
+    """One numeric filter: parameter dropdown + range slider + remove button (rng: restored range)."""
     cols = columns_for("filter", "numeric", include_empty=True)
     param = param if param in cols else None
     lo, hi, val, marks, step, disabled = _range_config(param)
+    if param and rng and len(rng) == 2:
+        val = [max(lo, min(hi, float(rng[0]))), max(lo, min(hi, float(rng[1])))]
     return html.Div(id={"type": "numf-row", "index": index}, className="filter-row", children=[
         dcc.Dropdown(id={"type": "numf-param", "index": index}, options=dropdown_options(cols), value=param,
                      placeholder="Choose a numeric parameter…"),
         html.Div(className="range-block", children=dcc.RangeSlider(
             id={"type": "numf-range", "index": index}, min=lo, max=hi, value=val, marks=marks, step=step,
-            disabled=disabled, tooltip={"placement": "bottom", "always_visible": True})),
+            disabled=disabled, tooltip=SLIDER_TOOLTIP)),
         html.Button("✕", id={"type": "numf-del", "index": index}, className="btn-icon", title="Remove this filter"),
     ])
 
@@ -102,7 +118,7 @@ def _stat_card(index: int, param: str | None) -> html.Div:
     return html.Div(className="stat-card", children=[
         control("Statistics for", dcc.Dropdown(id={"type": "stat-param", "index": index},
                                                options=dropdown_options(cols), value=_pick(param, cols, index),
-                                               clearable=False)),
+                                               clearable=False, **PERSIST)),
         html.Div(id={"type": "stat-out", "index": index}),
     ])
 
@@ -144,14 +160,14 @@ def layout(**_):
             html.Div(className="grid-4", children=[
                 control("Bubble size", dcc.Dropdown(id="db-size", options=dropdown_options(size_cols),
                                                     value=_pick("sri_total_pct", size_cols), clearable=True,
-                                                    placeholder="Same size")),
+                                                    placeholder="Same size", **PERSIST)),
                 control("Bubble colour", dcc.Dropdown(id="db-color", options=dropdown_options(color_cols),
                                                       value=_pick("sbp_level", color_cols), clearable=True,
-                                                      placeholder="Single colour")),
+                                                      placeholder="Single colour", **PERSIST)),
                 control("Colour scale (numeric)", dcc.Dropdown(id="db-cscale", options=COLORSCALES, value="Viridis",
-                                                               clearable=False)),
+                                                               clearable=False, **PERSIST)),
                 control("Map background", dcc.Dropdown(id="db-basemap", options=BASEMAPS, value="carto-positron",
-                                                       clearable=False)),
+                                                       clearable=False, **PERSIST)),
             ]),
             graph("db-map"),
             html.Div(id="db-selected", className="selected-panel",
@@ -166,15 +182,14 @@ def layout(**_):
         [
             html.Div(className="grid-4", children=[
                 control("X axis", dcc.Dropdown(id="db-x", options=dropdown_options(xy_cols),
-                                               value=_pick("sri_total_pct", xy_cols), clearable=False)),
+                                               value=_pick("sri_total_pct", xy_cols), clearable=False, **PERSIST)),
                 control("Y axis", dcc.Dropdown(id="db-y", options=dropdown_options(xy_cols),
-                                               value=_pick("sbp_level", xy_cols, 1), clearable=False)),
+                                               value=_pick("sbp_level", xy_cols, 1), clearable=False, **PERSIST)),
                 control("Colour by", dcc.Dropdown(id="db-xy-color", options=dropdown_options(color_cols),
                                                   value=_pick("main_reference", color_cols), clearable=True,
-                                                  placeholder="Single colour")),
-                control("Options", dcc.Checklist(id="db-xy-opts", options=[
-                    {"label": " Linear fit", "value": "trend"}, {"label": " Labels", "value": "labels"}],
-                    value=["trend", "labels"], inline=True, className="checklist")),
+                                                  placeholder="Single colour", **PERSIST)),
+                control("Options", dcc.Checklist(id="db-xy-opts", options=XY_OPTIONS,
+                    value=["trend", "labels"], inline=True, className="checklist", **PERSIST)),
             ]),
             graph("db-scatter"),
             html.Div(id="db-stats", className="stats"),
@@ -187,18 +202,17 @@ def layout(**_):
         [
             html.Div(className="table-toolbar", children=[
                 dcc.Input(id="db-search", type="search", placeholder="Search all columns…", debounce=False,
-                          className="search"),
+                          className="search", **PERSIST),
                 html.Button("Export CSV", id="db-export", className="btn"),
             ]),
             dag.AgGrid(
                 id="db-grid",
                 rowData=[],
                 columnDefs=_column_defs(b),
-                defaultColDef={"sortable": True, "filter": True, "floatingFilter": True, "resizable": True},
-                dashGridOptions={"pagination": True, "paginationPageSize": 20, "enableCellTextSelection": True,
-                                 "tooltipShowDelay": 300},
-                csvExportParams={"fileName": "nsbi_smart_buildings.csv"},
-                style={"height": "560px", "width": "100%"},
+                defaultColDef=GRID_DEFAULT_COLDEF,
+                dashGridOptions=GRID_OPTIONS,
+                csvExportParams=GRID_CSV_EXPORT,
+                style=GRID_STYLE,
             ),
         ],
         title="Full dataset",
@@ -221,11 +235,12 @@ def layout(**_):
         scatter_card,
         table_card,
         dcc.Store(id="db-ids"),
+        dcc.Store(id="db-init", data=True),  # fires once when the page is opened -> restores the filter rows
     ])
 
 
 # ----------------------------------------------------------------- callbacks: filter rows
-def _range_config(col):
+def _range_config(col: str | None) -> tuple[Any, ...]:
     if not col:
         return 0, 1, [0, 1], None, None, True
     s = get_data().buildings[col].dropna().astype(float)
@@ -312,6 +327,42 @@ def _reset(n):
     return [_cat_row(base, DEFAULT_CAT_FILTER)], [_num_row(base)], ""
 
 
+# ----------------------------------------------------------------- callbacks: filter memory (per browser tab)
+RESTORED_BASE = 100  # index base of restored filter rows
+
+
+@callback(
+    Output("db-catf-list", "children", allow_duplicate=True),
+    Output("db-numf-list", "children", allow_duplicate=True),
+    Input("db-init", "data"), State("mem-db-filters", "data"),
+    prevent_initial_call="initial_duplicate",
+)
+def _restore_filters(_, memory):
+    """When the dashboard opens, rebuild the filter rows saved in this tab's session memory."""
+    if not memory:
+        return no_update, no_update
+    cats = memory.get("cat") or []
+    nums = memory.get("num") or []
+    cat_rows = [_cat_row(RESTORED_BASE + i, p, v) for i, (p, v) in enumerate(cats)]
+    num_rows = [_num_row(RESTORED_BASE + i, p, r) for i, (p, r) in enumerate(nums)]
+    return (cat_rows or [_cat_row(RESTORED_BASE, DEFAULT_CAT_FILTER)]), (num_rows or [_num_row(RESTORED_BASE)])
+
+
+@callback(
+    Output("mem-db-filters", "data"),
+    Input({"type": "catf-param", "index": ALL}, "value"), Input({"type": "catf-vals", "index": ALL}, "value"),
+    Input({"type": "numf-param", "index": ALL}, "value"), Input({"type": "numf-range", "index": ALL}, "value"),
+    Input("db-catf-list", "children"), Input("db-numf-list", "children"),
+    prevent_initial_call=True,  # never overwrite the memory with the defaults of a freshly opened page
+)
+def _save_filters(cat_params, cat_vals, num_params, num_ranges, _cat_children, _num_children):
+    """Save the current filter rows (parameter + selection) in this tab's session memory."""
+    return {
+        "cat": [[p, v or []] for p, v in zip(cat_params, cat_vals)],
+        "num": [[p, r if p else None] for p, r in zip(num_params, num_ranges)],
+    }
+
+
 @callback(
     Output("db-ids", "data"), Output("db-filter-count", "children"),
     Input({"type": "catf-param", "index": ALL}, "value"), Input({"type": "catf-vals", "index": ALL}, "value"),
@@ -345,14 +396,14 @@ def _subset(ids):
 )
 def _kpis(ids):
     d = _subset(ids)
-    if "floor_area_m2" in d and d["floor_area_m2"].notna().any():
+    if "floor_area_m2" in d.columns and d["floor_area_m2"].notna().any():
         known = d["floor_area_m2"].dropna()
         area = fmt("floor_area_m2", float(known.sum()))
         area_sub = f"{len(known)} of {len(d)} buildings with known floor area"
     else:
         area, area_sub = "–", "no floor area data for these buildings"
-    countries = d["country"].nunique() if "country" in d else "–"
-    mun = d["municipality"].nunique() if "municipality" in d else "–"
+    countries = d["country"].nunique() if "country" in d.columns else "–"
+    mun = d["municipality"].nunique() if "municipality" in d.columns else "–"
     return f"{len(d)}", area, area_sub, f"{countries}", f"{mun}"
 
 
@@ -362,7 +413,7 @@ def _kpis(ids):
 )
 def _stat(col, ids):
     d = _subset(ids)
-    if not col or col not in d:
+    if not col or col not in d.columns:
         return html.Div("Choose a parameter", className="muted")
     v = d[col].dropna().astype(float)
     if v.empty:
@@ -404,7 +455,7 @@ def _table(ids):
     return d.astype(object).where(d.notna(), None).to_dict("records")
 
 
-@callback(Output("db-grid", "dashGridOptions"), Input("db-search", "value"), prevent_initial_call=True)
+@callback(Output("db-grid", "dashGridOptions"), Input("db-search", "value"))
 def _search(text):
     p = Patch()
     p["quickFilterText"] = text or ""

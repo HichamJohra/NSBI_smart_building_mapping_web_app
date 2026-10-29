@@ -9,6 +9,10 @@ from dash import dcc, html
 GRAPH_CONFIG: Any = {"displaylogo": False}  # 'displaylogo' is Plotly's option name
 GRAPH_CONFIG_RESPONSIVE: Any = {**GRAPH_CONFIG, "responsive": True}  # graph resizes with its container
 
+# Remember a control's value in the browser tab (sessionStorage): kept when moving between pages or reloading,
+# private to this tab and this user, cleared when the tab is closed. Use as dcc.Dropdown(..., **PERSIST).
+PERSIST: Any = {"persistence": True, "persistence_type": "session"}
+
 
 def card(children, title: str | None = None, subtitle: str | None = None, className: str = "") -> html.Div:
     head = []

@@ -134,7 +134,7 @@ def _about_app_section() -> list[Component]:
     """First About card: what the app is, its goal, and the NSBI / IBPSA Nordic / SINTEF context."""
     b = get_data().buildings
     n = len(b)
-    n_countries = b["country"].nunique() if "country" in b else 0
+    n_countries = b["country"].nunique() if "country" in b.columns else 0
     return [
         html.P([
             html.B("NSBI Smart Building Mapping"), " is an open, interactive map and database of real smart "

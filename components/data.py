@@ -11,6 +11,7 @@ marks the parameters always shown in hover pop-ups.
 from __future__ import annotations
 
 import math
+from typing import Any
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -162,7 +163,7 @@ def hover_label(text: str, title: str) -> html.Span:
     return html.Span(text, title=title, className="opt-label")
 
 
-def dropdown_options(cols: list[str]) -> list[dict]:
+def dropdown_options(cols: list[str]) -> list[Any]:
     """Dropdown options shown as 'Group · Label', with the parameter description on hover.
 
     Labels are components (for the hover text), so 'search' holds the searchable text:
@@ -207,7 +208,7 @@ def sbp_level_name(level) -> str:
     return SBP_LEVEL_NAMES.get(int(math.floor(level)), "")
 
 
-def building_options() -> list[dict]:
+def building_options() -> list[Any]:
     b = get_data().buildings
     def title(r):
         parts = [str(x) for x in (getattr(r, "building_type", None), getattr(r, "city", None),

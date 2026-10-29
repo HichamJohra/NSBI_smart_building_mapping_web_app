@@ -1,4 +1,6 @@
 """Building detail page: profile of one building (SRI domains, impacts, key functionalities, SbP topics)."""
+from typing import Any
+
 import dash
 import pandas as pd
 from dash import Input, Output, callback, dcc, html
@@ -6,7 +8,7 @@ from dash import Input, Output, callback, dcc, html
 from components.data import building_options, fmt, get_building, get_data, label, sbp_level_name, tooltip, unit
 from components.figures import (DOMAIN_COLS, IMPACT_COLS, KF_COLS, SBP_TOPIC_COLS, bar_scores,
                                 heatmap_detailed, location_map)
-from components.ui import GRAPH_CONFIG, GRAPH_CONFIG_RESPONSIVE, card, control, kpi_static
+from components.ui import GRAPH_CONFIG, GRAPH_CONFIG_RESPONSIVE, PERSIST, card, control, kpi_static
 
 dash.register_page(__name__, path="/building", name="Building detail", order=1,
                    title="Building detail · NSBI Smart Buildings")
@@ -15,7 +17,8 @@ dash.register_page(__name__, path="/building", name="Building detail", order=1,
 # groups are used automatically, so parameters added to the Excel file appear without code changes.
 CHARACTERISTIC_GROUPS = ["Identity", "Location", "Building", "Metadata"]
 PERFORMANCE_GROUP = "Building performance"
-NOT_IN_TABLE = {"building_name", "short_name"}  # already shown as the page title / chart labels
+NOT_IN_TABLE = {"building_name", "short_name"}
+FILL_STYLE: Any = {"height": "100%", "width": "100%"}  # graph fills its container (Any: typed Dash prop)  # already shown as the page title / chart labels
 REFERENCE_FIELDS = [("main_reference", "main_reference_url"),
                     ("building_info_reference", "building_info_reference_url"),
                     ("performance_info_reference", "performance_info_reference_url")]
@@ -30,7 +33,7 @@ def layout(building_id=None, **_):
             html.H1("Building detail"),
             html.P("Smartness profile of a single building."),
         ]),
-        card(control("Building", dcc.Dropdown(id="bd-select", options=opts, value=building_id, clearable=False))),
+        card(control("Building", dcc.Dropdown(id="bd-select", options=opts, value=building_id, clearable=False, **PERSIST))),
         html.Div(id="bd-content"),
     ])
 
@@ -128,7 +131,7 @@ def _render(building_id):
                 card(_performance_table(r), title="Building performance"),
             ]),
             card(html.Div(dcc.Graph(figure=location_map(r), config=GRAPH_CONFIG_RESPONSIVE,
-                                    style={"height": "100%", "width": "100%"}), className="map-fill"),
+                                    style=FILL_STYLE), className="map-fill"),
                  title="Location", className="map-card"),
         ]),
         *graphs,

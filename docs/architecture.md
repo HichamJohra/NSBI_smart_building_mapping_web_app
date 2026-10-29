@@ -89,6 +89,21 @@ For the complete, always up-to-date picture (all pages, all callbacks, every fun
 [project_graph_explorer/NSBI_project_explorer.html](project_graph_explorer/NSBI_project_explorer.html).
 In the explorer, pattern-matching components appear as one node per type, e.g. `#catf-param[*]`.
 
+## Memory of user selections (per browser tab)
+
+Selections are kept when moving between pages or reloading, using the browser's **sessionStorage**:
+
+- Simple controls (map and plot dropdowns, statistics cards, table search, building / compare selections) use
+  Dash persistence: `**PERSIST` from `components/ui.py` (`persistence=True, persistence_type="session"`).
+- The dynamic filter rows of the dashboard cannot be restored by persistence (they are created by callbacks), so
+  they are saved in `dcc.Store(id="mem-db-filters", storage_type="session")` in `app.py`:
+  `_save_filters()` writes the rows (parameter + values / range) on every change, and `_restore_filters()` rebuilds
+  them when the dashboard opens (triggered by `dcc.Store(id="db-init")`).
+
+sessionStorage lives only in the browser: it is separate for every tab (two tabs never share selections, except
+a tab created with "Duplicate tab", which starts as a copy), separate for every user and browser, never stored on
+the server, and cleared when the tab is closed. "Reset filters" also resets the memory.
+
 ## Conventions
 
 - Component ids are prefixed per page: `db-` (dashboard), `bd-` (building detail), `cmp-` (compare).

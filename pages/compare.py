@@ -4,7 +4,7 @@ from dash import Input, Output, callback, dcc, html
 
 from components.data import building_options, fmt, get_data, label
 from components.figures import DOMAIN_COLS, IMPACT_COLS, KF_COLS, SBP_TOPIC_COLS, grouped_bars, radar
-from components.ui import GRAPH_CONFIG, card, control
+from components.ui import GRAPH_CONFIG, PERSIST, card, control
 
 dash.register_page(__name__, path="/compare", name="Compare smartness", order=2, title="Compare · NSBI Smart Buildings")
 
@@ -21,7 +21,7 @@ def layout(**_):
             html.H1("Compare smartness level of buildings"),
             html.P(f"Select 2 to {MAX_BUILDINGS} buildings to compare their smartness profiles."),
         ]),
-        card(control("Buildings", dcc.Dropdown(id="cmp-select", options=opts, value=default, multi=True))),
+        card(control("Buildings", dcc.Dropdown(id="cmp-select", options=opts, value=default, multi=True, **PERSIST))),
         html.Div(id="cmp-warning", className="muted"),
         card(html.Div(id="cmp-table"), title="Key figures"),
         html.Div(className="grid-2", children=[
