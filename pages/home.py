@@ -18,7 +18,7 @@ BASEMAPS = [
     {"label": "Dark", "value": "carto-darkmatter"},
 ]
 COLORSCALES = ["Viridis", "RdYlGn", "Plasma", "Blues", "Turbo"]
-DEFAULT_CAT_FILTER = "source_study"          # parameter pre-selected in the first category filter
+DEFAULT_CAT_FILTER = "main_reference"        # parameter pre-selected in the first category filter
 STAT_DEFAULTS = ["sri_total_pct", "sbp_level"]  # parameters pre-selected in the two statistics cards
 HIDDEN = {"display": "none"}
 
@@ -156,7 +156,7 @@ def layout(**_):
                 control("Y axis", dcc.Dropdown(id="db-y", options=dropdown_options(xy_cols),
                                                value=_pick("sbp_level", xy_cols, 1), clearable=False)),
                 control("Colour by", dcc.Dropdown(id="db-xy-color", options=dropdown_options(color_cols),
-                                                  value=_pick("source_study", color_cols), clearable=True,
+                                                  value=_pick("main_reference", color_cols), clearable=True,
                                                   placeholder="Single colour")),
                 control("Options", dcc.Checklist(id="db-xy-opts", options=[
                     {"label": " Linear fit", "value": "trend"}, {"label": " Labels", "value": "labels"}],
@@ -188,7 +188,7 @@ def layout(**_):
             ),
         ],
         title="Full dataset",
-        subtitle="Sort and filter each column from its header, or search across all columns. Scroll sideways for all parameters.",
+        subtitle="Sort and filter each column from its header, or search across all columns. Scroll sideways for all parameters. The table only shows filtered buildings",
     )
 
     return html.Div([

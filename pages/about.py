@@ -7,6 +7,9 @@ from components.ui import card
 
 dash.register_page(__name__, path="/about", name="About", order=99, title="About · NSBI Smart Buildings")
 
+REPOSITORY_URL = "https://github.com/HichamJohra/NSBI_smart_building_mapping_web_app"
+CONTACT_NAME, CONTACT_EMAIL = "Hicham Johra", "hicham.johra@sintef.no"
+
 SRI_CLASSES = [("Class 1", "90–100 %"), ("Class 2", "80–90 %"), ("Class 3", "65–80 %"), ("Class 4", "50–65 %"),
                ("Class 5", "35–50 %"), ("Class 6", "20–35 %"), ("Class 7", "< 20 %")]
 
@@ -80,4 +83,10 @@ def layout(**_):
             "`buildings` sheet and new parameters as new columns, registered in the `data_dictionary` sheet "
             "(flags decide in which dropdowns they appear). Refresh the browser to see the changes."),
             title="Updating the data"),
+        card([
+            html.P(["The data and the code of this web app can be found on GitHub: ",
+                    html.A(REPOSITORY_URL, href=REPOSITORY_URL, target="_blank"), "."]),
+            html.P(["For comments and suggestions for improvement, contact ", CONTACT_NAME, " (",
+                    html.A(CONTACT_EMAIL, href=f"mailto:{CONTACT_EMAIL}"), ")."]),
+        ], title="Data, code and contact"),
     ])

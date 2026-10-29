@@ -14,7 +14,10 @@ dash.register_page(__name__, path="/building", name="Building detail", order=1,
 INFO_FIELDS = ["building_id", "owner_partner", "address", "city", "municipality", "county", "building_type",
                "floor_area_category", "floor_area_m2", "construction_period", "construction_year",
                "latest_renovation_year", "assessed_state", "n_sri_domains_assessed", "sri_domains_not_assessed",
-               "location_precision", "source_study", "assessment_year", "sri_method", "sbp_tool", "notes"]
+               "location_precision", "assessment_year", "sri_method", "sbp_tool", "notes"]
+REFERENCE_FIELDS = [("main_reference", "main_reference_url"),
+                    ("building_info_reference", "building_info_reference_url"),
+                    ("performance_info_reference", "performance_info_reference_url")]
 
 
 def layout(building_id=None, **_):
@@ -36,11 +39,11 @@ def _info_table(r: pd.Series) -> html.Table:
     for c in INFO_FIELDS:
         if c in r.index and not (pd.isna(r[c]) or r[c] == ""):
             rows.append(html.Tr([html.Th(label(c, with_unit=False)), html.Td(fmt(c, r[c]))]))
-    if isinstance(r.get("reference"), str):
-        ref = r["reference"]
-        url = r.get("reference_url")
-        rows.append(html.Tr([html.Th("Reference"),
-                             html.Td(html.A(ref, href=url, target="_blank") if isinstance(url, str) and url else ref)]))
+    for ref_col, url_col in REFERENCE_FIELDS:
+        ref, url = r.get(ref_col), r.get(url_col)
+        if isinstance(ref, str) and ref:
+            cell = html.A(ref, href=url, target="_blank") if isinstance(url, str) and url else ref
+            rows.append(html.Tr([html.Th(label(ref_col, with_unit=False)), html.Td(cell)]))
     return html.Table(rows, className="info-table")
 
 

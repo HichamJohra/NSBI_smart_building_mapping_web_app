@@ -58,9 +58,13 @@ body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
 
 /* Dynamic filters */
 .filters-grid { align-items: start; margin-bottom: 8px; }
+/* Category and numeric rows share the same fixed height so dropdowns, sliders and the "+ Add" buttons
+   line up across the two columns. The dropdown sits at the top of the row; the slider track is centred
+   on the dropdown and its value tooltips use the space below. */
 .filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 34px; gap: 10px;
-              align-items: center; margin-bottom: 10px; }
-.filter-row .range-block { padding: 14px 4px 18px; }
+              align-items: start; height: 64px; margin-bottom: 6px; }
+.filter-row .btn-icon { margin-top: 3px; }
+.filter-row .range-block { padding: 11px 6px 0; }
 .btn-light { background: transparent; color: var(--accent); border: 1px dashed var(--accent); border-radius: 6px;
              padding: 5px 12px; cursor: pointer; font-size: .88rem; }
 .btn-light:hover { background: #eef3fa; }
@@ -74,7 +78,7 @@ body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
 .stat-main { font-size: 1.5rem; font-weight: 600; }
 .stat-std { font-size: 1.1rem; color: var(--muted); }
 .stats { margin-top: 6px; font-family: Consolas, monospace; font-size: .88rem; color: var(--muted); }
-.selected-panel { margin-top: 8px; padding: 8px 12px; background: #eef3fa; border-radius: 6px; font-size: .92rem; }
+.selected-panel { margin-top: 6px; padding: 5px 10px; background: #eef3fa; border-radius: 6px; font-size: .8rem; }
 .link-strong { font-weight: 600; color: var(--accent); margin-left: 8px; }
 .table-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
 .search { flex: 1; max-width: 420px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: .95rem; }

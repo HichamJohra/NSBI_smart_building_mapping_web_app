@@ -99,7 +99,8 @@ def map_figure(df: pd.DataFrame, size_col: str | None, color_col: str | None,
         has = ~np.isnan(vals)
         if has.any():
             add(has, dict(size=sizes[has], color=vals[has], colorscale=colorscale, opacity=0.85,
-                          colorbar=dict(title=dict(text=label(color_col), side="right"), thickness=14)),
+                          colorbar=dict(title=dict(text=f"<b>{label(color_col)}</b>", side="right"),
+                                        tickfont=dict(weight="bold"), thickness=14)),
                 label(color_col, with_unit=False), showlegend=False)
         if (~has).any():
             add(~has, dict(size=sizes[~has], color=NA_GREY, opacity=0.8), "n/a")
