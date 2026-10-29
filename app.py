@@ -12,6 +12,13 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 server = app.server  # WSGI entry point for later deployment (gunicorn app:server)
+# The browser-tab icon is assets/favicon.ico (SINTEF), picked up automatically by Dash.
+
+# Partner logos shown at the top right of every page (files in assets/logos/): (file, name, link)
+LOGOS = [
+    ("logos/sintef_logo.png", "SINTEF Community", "https://www.sintef.no/en/community/"),
+    ("logos/ibpsa_nordic_logo.png", "IBPSA Nordic", "https://www.ibpsa-nordic.org/"),
+]
 
 
 def navbar() -> html.Header:
@@ -19,9 +26,15 @@ def navbar() -> html.Header:
         dcc.Link(page["name"], href=page["relative_path"], className="nav-link")
         for page in dash.page_registry.values()
     ]
+    logos = [html.A(html.Img(src=app.get_asset_url(path), alt=name, className="nav-logo"),
+                    href=url, target="_blank", rel="noopener noreferrer", title=f"{name} – {url}")
+             for path, name, url in LOGOS]
     return html.Header(
         className="navbar",
-        children=[html.Div("NSBI Smart Building Mapping", className="brand"), html.Nav(links)],
+        children=[
+            html.Div("NSBI Smart Building Mapping", className="brand"),
+            html.Div(className="nav-right", children=[html.Nav(links), html.Div(logos, className="nav-logos")]),
+        ],
     )
 
 

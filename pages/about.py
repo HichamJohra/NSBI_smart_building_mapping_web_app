@@ -1,6 +1,7 @@
 """About / methodology page: frameworks, scales, data sources and caveats."""
 import dash
 from dash import dcc, html
+from dash.development.base_component import Component
 
 from components.data import SBP_LEVEL_NAMES, get_data, label, unit
 from components.ui import card
@@ -10,7 +11,11 @@ dash.register_page(__name__, path="/about", name="About", order=99, title="About
 SBP_LEVELS_DESC: list[int] = list(range(4, -3, -1))  # SbP levels 4 … −2, highest first
 
 REPOSITORY_URL = "https://github.com/HichamJohra/NSBI_smart_building_mapping_web_app"
+NSBI_URL = "https://www.ibpsa-nordic.org/nordic-smart-building-initiative/"
+IBPSA_NORDIC_URL = "https://www.ibpsa-nordic.org/"
+SINTEF_COMMUNITY_URL = "https://www.sintef.no/en/community/"
 CONTACT_NAME, CONTACT_EMAIL = "Hicham Johra", "hicham.johra@sintef.no"
+CONTACT_URL = "https://www.sintef.no/en/all-employees/employee/hicham.johra/"
 
 SRI_CLASSES = [("Class 1", "90–100 %"), ("Class 2", "80–90 %"), ("Class 3", "65–80 %"), ("Class 4", "50–65 %"),
                ("Class 5", "35–50 %"), ("Class 6", "20–35 %"), ("Class 7", "< 20 %")]
@@ -50,6 +55,11 @@ GROUP_INTROS = {
                 "reading positions as exact addresses.",
     "Building": "Physical and historical characteristics of the building. The construction or latest renovation "
                 "period reflects the age of the technical systems, which strongly influences smart readiness.",
+    "Building performance": "Measured, calculated or simulated performance of the building in operation: energy "
+                            "use and demand, peak loads, renewable generation and grid exchange, carbon emissions, "
+                            "water, envelope U-value, operating cost and occupant satisfaction. Intensities are "
+                            "normalized by the conditioned floor area; 'Performance evaluation reference year' tells "
+                            "which year the values refer to. Not yet available for the current buildings.",
     "SRI": "Headline Smart Readiness Indicator results. The SRI rates the capability of the technical building "
            "systems (not their measured performance) to use smart technologies, in % of the maximum achievable "
            "for this building, and on a 7-class scale.",
@@ -92,7 +102,7 @@ def _variables_section() -> html.Div:
     b, d = data.buildings, data.dictionary
     n = len(b)
     groups = list(dict.fromkeys(g for g in d["group"] if g))
-    blocks = [html.P(f"The dataset currently contains {n} buildings described by {len(d)} variables, organised "
+    blocks: list[Component] = [html.P(f"The dataset currently contains {n} buildings described by {len(d)} variables, organised "
                      f"in {len(groups)} groups. Hover a variable in any dropdown or table header of the app to "
                      "see the same description. The column name is the name used in the Excel file.")]
     for g in groups:
@@ -108,12 +118,58 @@ def _variables_section() -> html.Div:
                 html.Td(html.Code(c)),
             ]) for c, desc in zip(rows["column"], rows["description"])],
             className="info-table vars-table")
-        blocks.append(html.Details(open=False, className="var-group", children=[
-            html.Summary(f"{g} ({len(rows)} variable{'s' if len(rows) != 1 else ''})"),
-            html.P(GROUP_INTROS.get(g, ""), className="muted") if GROUP_INTROS.get(g) else None,
-            table,
-        ]))
+        children: list[Component] = [html.Summary(f"{g} ({len(rows)} variable{'s' if len(rows) != 1 else ''})")]
+        if GROUP_INTROS.get(g):
+            children.append(html.P(GROUP_INTROS[g], className="muted"))
+        children.append(table)
+        blocks.append(html.Details(open=False, className="var-group", children=children))
     return html.Div(blocks)
+
+
+def _ext(text: str, url: str) -> html.A:
+    return html.A(text, href=url, target="_blank", rel="noopener noreferrer")
+
+
+def _about_app_section() -> list[Component]:
+    """First About card: what the app is, its goal, and the NSBI / IBPSA Nordic / SINTEF context."""
+    b = get_data().buildings
+    n = len(b)
+    n_countries = b["country"].nunique() if "country" in b else 0
+    return [
+        html.P([
+            html.B("NSBI Smart Building Mapping"), " is an open, interactive map and database of real smart "
+            "buildings. It brings together, for each documented building, its characteristics, the results of "
+            "smartness assessments (e.g., the Smart Readiness Indicator:SRI, Smart by Powerhouse: SbP) and, where "
+            "available, indicators of its energy, carbon and operational performance. Users can locate the buildings "
+            "on a map, filter and compare them, explore correlations between any two parameters, and look at each "
+            "building in detail.",
+        ]),
+        html.P([
+            html.B("Goal: "), "to give researchers, engineers, building owners, practitioners and policy makers a "
+            "shared and transparent overview of how smart today's buildings are, starting with the Nordic "
+            "countries. The app supports benchmarking of buildings, helps identify where smart solutions would add "
+            "most value, and feeds an evidence-based discussion on what makes a building smart and whether smarter "
+            f"buildings perform better. The dataset currently contains {n} buildings in {n_countries} "
+            f"countr{'y' if n_countries == 1 else 'ies'} and is meant to grow as new cases are documented.",
+        ]),
+        html.P([
+            "The web app is developed within the ", _ext("Nordic Smart Building Initiative (NSBI)", NSBI_URL),
+            ", under the umbrella of ", _ext("IBPSA Nordic", IBPSA_NORDIC_URL),
+            " (the International Building Performance Simulation Association in the Nordic countries), and is "
+            "supported by ", _ext("SINTEF Community", SINTEF_COMMUNITY_URL), " (Norway). NSBI is a collaborative "
+            "forum gathering researchers, academics, engineers, consultants and other stakeholders of the smart "
+            "building industry in the Nordic and Baltic countries. Through dedicated working groups – one of them "
+            "on mapping smart buildings in the Nordics – it investigates key questions on smart buildings and shares "
+            "actionable insights with the research community and the building industry.",
+        ]),
+        html.Div(_ext_img("logos/nsbi_logo.png", "Nordic Smart Building Initiative (NSBI)", NSBI_URL),
+                 className="about-logo"),
+    ]
+
+
+def _ext_img(path: str, name: str, url: str) -> html.A:
+    return html.A(html.Img(src=dash.get_asset_url(path), alt=name), href=url, target="_blank",
+                  rel="noopener noreferrer", title=f"{name} – {url}")
 
 
 def layout(**_):
@@ -125,7 +181,8 @@ def layout(**_):
         src_rows.append([r.get("source_id", ""), ref, r.get("used_for", "")])
     return html.Div([
         html.Div(className="page-head", children=[html.H1("About"),
-                                                  html.P("Frameworks, scales, data sources and caveats.")]),
+                                                  html.P("The web app, frameworks, scales, data sources and caveats.")]),
+        card(_about_app_section(), title="About this web app"),
         card(dcc.Markdown(INTRO), title="What is shown"),
         card(_variables_section(), title="Dataset variables"),
         html.Div(className="grid-2", children=[
@@ -140,12 +197,13 @@ def layout(**_):
         card(dcc.Markdown(
             "The dataset is the Excel file `data/smart_buildings_dataset.xlsx`. Add buildings as new rows in the "
             "`buildings` sheet and new parameters as new columns, registered in the `data_dictionary` sheet "
-            "(flags decide in which dropdowns they appear). Refresh the browser to see the changes."),
+            "(label, unit, group, type and description). Every parameter then appears automatically in the dropdowns "
+            "that fit its type (numeric or category). Refresh the browser to see the changes."),
             title="Updating the data"),
         card([
             html.P(["The data and the code of this web app can be found on GitHub: ",
                     html.A(REPOSITORY_URL, href=REPOSITORY_URL, target="_blank"), "."]),
-            html.P(["For comments and suggestions for improvement, contact ", CONTACT_NAME, " (",
+            html.P(["For comments and suggestions for improvement, contact ", _ext(CONTACT_NAME, CONTACT_URL), " (",
                     html.A(CONTACT_EMAIL, href=f"mailto:{CONTACT_EMAIL}"), ")."]),
         ], title="Data, code and contact"),
     ])

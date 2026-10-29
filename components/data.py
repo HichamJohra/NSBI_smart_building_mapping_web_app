@@ -4,8 +4,9 @@ Reads data/smart_buildings_dataset.xlsx. The workbook is re-read automatically w
 the file changes on disk, so editing the Excel file and refreshing the browser is
 enough to see new data (no restart needed).
 
-The sheet 'data_dictionary' drives the app: it gives labels/units and flags (Y)
-saying which columns appear in which dropdown (map_size, map_color, xy, filter, hover).
+The sheet 'data_dictionary' drives the app: label, unit, group, dtype and description of every column.
+All columns are offered in the dropdowns that fit their dtype (numeric / categorical); the 'hover' flag (Y)
+marks the parameters always shown in hover pop-ups.
 """
 from __future__ import annotations
 
@@ -101,28 +102,55 @@ def tooltip(col: str) -> str:
 
 
 def is_numeric(col: str) -> bool:
+    """True for numeric parameters. Uses the data-dictionary dtype when given (so an empty column declared
+    'numeric' or 'categorical' is treated correctly), otherwise the pandas dtype of the column."""
     b = get_data().buildings
-    return col in b.columns and pd.api.types.is_numeric_dtype(b[col])
+    if col not in b.columns:
+        return False
+    dtype = str(_meta(col).get("dtype") or "").strip().lower()
+    if dtype == "numeric":
+        return True
+    if dtype in ("categorical", "text"):
+        return False
+    return pd.api.types.is_numeric_dtype(b[col])
 
 
-def columns_for(flag: str, kind: str | None = None) -> list[str]:
-    """Columns flagged 'Y' for a given use, that actually contain data.
+def has_data(col: str) -> bool:
+    b = get_data().buildings
+    return col in b.columns and bool(b[col].notna().any())
 
-    kind: 'numeric', 'categorical' or None (both).
-    """
+
+def all_columns() -> list[str]:
+    """All columns of the 'buildings' sheet: data-dictionary order first, then any undocumented columns."""
     data = get_data()
-    d = data.dictionary
-    if flag not in d.columns:
-        return []
-    cols = d.loc[d[flag].astype(str).str.upper().str.strip() == "Y", "column"].tolist()
+    cols = [c for c in data.dictionary["column"] if c in data.buildings.columns]
+    return cols + [c for c in data.buildings.columns if c not in cols]
+
+
+def columns_for(use: str, kind: str | None = None, include_empty: bool = False) -> list[str]:
+    """Parameters offered for a given use.
+
+    Every column of the dataset is offered, according to its type:
+      - kind='numeric'      -> numeric parameters (bubble size, X/Y axes, numeric filters, statistics)
+      - kind='categorical'  -> text / categorical parameters (category filters)
+      - kind=None           -> all parameters (bubble colour, colour by)
+    use='hover' is the exception: only columns flagged 'Y' in the 'hover' column of the data dictionary
+    are always shown in the map / plot hover pop-ups.
+    Columns without any value are skipped unless include_empty=True (dropdowns then show them disabled).
+    """
+    if use == "hover":
+        d = get_data().dictionary
+        if "hover" not in d.columns:
+            return []
+        cols = d.loc[d["hover"].astype(str).str.upper().str.strip() == "Y", "column"].tolist()
+    else:
+        cols = all_columns()
     out = []
     for c in cols:
-        if data.buildings[c].notna().sum() == 0:
-            continue  # hide empty columns (e.g. EPC label not yet filled in)
-        num = is_numeric(c)
-        if kind == "numeric" and not num:
+        if not include_empty and not has_data(c):
             continue
-        if kind == "categorical" and num:
+        num = is_numeric(c)
+        if (kind == "numeric" and not num) or (kind == "categorical" and num):
             continue
         out.append(c)
     return out
@@ -145,7 +173,11 @@ def dropdown_options(cols: list[str]) -> list[dict]:
         m = _meta(c)
         grp = m.get("group") or ""
         text = f"{grp} · {label(c)}" if grp else label(c)
-        opts.append({"label": hover_label(text, tooltip(c)), "value": c, "search": f"{text} {c}"})
+        empty = not has_data(c)
+        if empty:
+            text += " (no data yet)"
+        opts.append({"label": hover_label(text, tooltip(c)), "value": c, "search": f"{text} {c}",
+                     "disabled": empty})  # empty parameters are listed but cannot be selected
     return opts
 
 
@@ -161,6 +193,8 @@ def fmt(col: str, value) -> str:
             return f"{value:.2f}"
         if u == "m²":
             return f"{value:,.0f} m²".replace(",", " ")
+        if u == "°":
+            return f"{value:.5f}°"
         if float(value).is_integer():
             return f"{int(value)}"
         return f"{value:.2f}"

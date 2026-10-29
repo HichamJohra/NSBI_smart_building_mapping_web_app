@@ -19,12 +19,13 @@ python app.py                 # -> http://127.0.0.1:8050
 |---|---|
 | `app.py` | App entry point, navigation bar, page container |
 | `pages/home.py` | Dashboard: KPIs, add/remove filters, bubble map, statistics cards, XY correlation explorer, full dataset table |
-| `pages/building.py` | Building detail: SRI key functionalities, impacts, domains, detailed matrix, SbP topics |
+| `pages/building.py` | Building detail: characteristics, building performance indicators, location map, SRI key functionalities, impacts, domains, detailed matrix, SbP topics |
 | `pages/compare.py` | Compare 2–6 buildings on radar and bar charts |
 | `pages/about.py` | Frameworks (SRI, Smart by Powerhouse), scales, sources, caveats |
 | `components/data.py` | Excel loading (auto-reload on file change) and data-dictionary helpers |
 | `components/figures.py` | Plotly figure builders |
 | `assets/style.css` | Styling (auto-loaded by Dash) |
+| `assets/favicon.ico`, `assets/logos/` | SINTEF browser-tab icon; SINTEF and IBPSA Nordic logos (top right of every page, linked to their websites); NSBI logo (About page) |
 | `data/smart_buildings_dataset.xlsx` | The dataset |
 | `docs/` | Documentation: architecture, data model, development guide |
 | `docs/project_graph_explorer/` | Interactive HTML map of the code + script to regenerate it |
@@ -45,8 +46,8 @@ Regenerate it after code changes:
 
 - `buildings` – one row per building (identity, location, characteristics, SRI and SbP results)
 - `sri_detailed` – SRI score per technical domain × impact criterion (long format)
-- `data_dictionary` – label, unit, group and flags (`Y`) deciding in which dropdowns each column appears
-  (`map_size`, `map_color`, `xy`, `filter`, `hover`)
+- `data_dictionary` – label, unit, group, dtype and description of each column. Every column appears in the
+  dropdowns that fit its dtype (numeric or category); `hover` = `Y` shows it in all hover pop-ups
 - `sources` – references
 
 To add a parameter, add a column to `buildings` and a row to `data_dictionary`. To add a building, add a row

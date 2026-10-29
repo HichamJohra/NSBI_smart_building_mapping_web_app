@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 from dash import ALL, MATCH, Input, Output, Patch, State, callback, ctx, dcc, html, no_update
 
-from components.data import columns_for, dropdown_options, fmt, get_data, is_numeric, label, tooltip, unit
+from components.data import (columns_for, dropdown_options, fmt, get_data, has_data, is_numeric, label, tooltip,
+                             unit)
 from components.figures import map_figure, scatter_figure
 from components.ui import card, control, graph, kpi
 
@@ -22,8 +23,21 @@ DEFAULT_CAT_FILTER = "main_reference"        # parameter pre-selected in the fir
 STAT_DEFAULTS = ["sri_total_pct", "sbp_level"]  # parameters pre-selected in the two statistics cards
 HIDDEN = {"display": "none"}
 
+# Hover descriptions of the KPI cards (all KPIs are computed on the buildings matching the filters)
+KPI_HELP = {
+    "n": "Buildings shown\nNumber of buildings that match all active filters. The map, statistics, correlation "
+         "plot and table show these buildings only.",
+    "area": "Total surface area\nSum of the useful (heated) floor area, in m², of the buildings shown, counting "
+            "only buildings whose exact floor area is known (column 'Floor area'). Buildings with only a floor "
+            "area class are not included; the line below gives how many buildings are counted.",
+    "countries": "Countries\nNumber of different countries among the buildings shown.",
+    "mun": "Municipalities\nNumber of different municipalities (Norwegian: kommuner) among the buildings shown.",
+}
+
 
 def _pick(preferred: str, options: list[str], fallback_index: int = 0):
+    """Default dropdown value: the preferred parameter, else a fallback that has data."""
+    options = [o for o in options if has_data(o)]
     if preferred in options:
         return preferred
     return options[fallback_index] if len(options) > fallback_index else (options[0] if options else None)
@@ -57,7 +71,7 @@ def _column_defs(df: pd.DataFrame) -> list[dict]:
 # ----------------------------------------------------------------- dynamic filter rows
 def _cat_row(index: int, param: str | None = None) -> html.Div:
     """One category filter: parameter dropdown + values dropdown + remove button."""
-    cols = columns_for("filter", "categorical")
+    cols = columns_for("filter", "categorical", include_empty=True)
     param = param if param in cols else None
     return html.Div(id={"type": "catf-row", "index": index}, className="filter-row", children=[
         dcc.Dropdown(id={"type": "catf-param", "index": index}, options=dropdown_options(cols), value=param,
@@ -70,7 +84,7 @@ def _cat_row(index: int, param: str | None = None) -> html.Div:
 
 def _num_row(index: int, param: str | None = None) -> html.Div:
     """One numeric filter: parameter dropdown + range slider + remove button."""
-    cols = columns_for("filter", "numeric")
+    cols = columns_for("filter", "numeric", include_empty=True)
     param = param if param in cols else None
     lo, hi, val, marks, step, disabled = _range_config(param)
     return html.Div(id={"type": "numf-row", "index": index}, className="filter-row", children=[
@@ -84,7 +98,7 @@ def _num_row(index: int, param: str | None = None) -> html.Div:
 
 
 def _stat_card(index: int, param: str | None) -> html.Div:
-    cols = columns_for("xy", "numeric")
+    cols = columns_for("stats", "numeric", include_empty=True)
     return html.Div(className="stat-card", children=[
         control("Statistics for", dcc.Dropdown(id={"type": "stat-param", "index": index},
                                                options=dropdown_options(cols), value=_pick(param, cols, index),
@@ -96,9 +110,9 @@ def _stat_card(index: int, param: str | None) -> html.Div:
 def layout(**_):
     data = get_data()
     b = data.buildings
-    size_cols = columns_for("map_size", "numeric")
-    color_cols = columns_for("map_color")
-    xy_cols = columns_for("xy", "numeric")
+    size_cols = columns_for("map_size", "numeric", include_empty=True)
+    color_cols = columns_for("map_color", include_empty=True)
+    xy_cols = columns_for("xy", "numeric", include_empty=True)
 
     filters = card(
         [
@@ -197,10 +211,10 @@ def layout(**_):
             html.P("Smartness, performance, and characteristics of real buildings."),
         ]),
         html.Div(className="kpi-row", children=[
-            kpi("Buildings shown", "db-kpi-n"),
-            kpi("Total surface area", "db-kpi-area", "db-kpi-area-sub"),
-            kpi("Countries", "db-kpi-countries"),
-            kpi("Municipalities", "db-kpi-mun"),
+            kpi("Buildings shown", "db-kpi-n", description=KPI_HELP["n"]),
+            kpi("Total surface area", "db-kpi-area", "db-kpi-area-sub", description=KPI_HELP["area"]),
+            kpi("Countries", "db-kpi-countries", description=KPI_HELP["countries"]),
+            kpi("Municipalities", "db-kpi-mun", description=KPI_HELP["mun"]),
         ]),
         filters,
         map_card,
@@ -360,7 +374,8 @@ def _stat(col, ids):
         html.Div("mean ± standard deviation", className="muted"),
         html.Div(f"n = {len(v)} of {len(d)} buildings · min {fmt(col, float(v.min()))} · max {fmt(col, float(v.max()))}",
                  className="muted"),
-    ])
+    ], title=f"{tooltip(col)}\n\nMean and sample standard deviation over the buildings shown (filtered) that have a "
+             f"value for this parameter; n = number of these buildings, min / max = their extreme values.")
 
 
 @callback(

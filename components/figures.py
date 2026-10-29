@@ -238,7 +238,8 @@ def grouped_bars(df: pd.DataFrame, cols: list[str], title: str, rng=None, height
     return fig
 
 
-def location_map(row: pd.Series, height=300) -> go.Figure:
+def location_map(row: pd.Series, height=None) -> go.Figure:
+    """Single-building map. height=None lets the map fill its container (see .map-fill in style.css)."""
     if pd.isna(row.get("latitude")) or pd.isna(row.get("longitude")):
         return empty_figure("No coordinates", height)
     fig = go.Figure(go.Scattermap(lat=[row["latitude"]], lon=[row["longitude"]], mode="markers",

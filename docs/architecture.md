@@ -15,6 +15,8 @@ components/             shared, page-independent code
   figures.py            Plotly figure builders (map, scatter, bars, radar, heatmap)
   ui.py                 small layout helpers (card, control, kpi, graph)
 assets/style.css        styling, auto-loaded by Dash
+assets/favicon.ico      browser-tab icon (SINTEF), served automatically by Dash
+assets/logos/           SINTEF and IBPSA Nordic logos (navigation bar), NSBI logo (About page)
 data/                   the Excel dataset
 docs/                   documentation and the project graph explorer
 ```
