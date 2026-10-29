@@ -88,3 +88,17 @@ body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
 .info-table th, .info-table td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .info-table th { color: var(--muted); font-weight: 600; width: 34%; }
 .compare-table th { width: auto; }
+
+/* Hover descriptions: AG Grid header tooltips keep line breaks and wrap */
+.ag-tooltip { white-space: pre-line; max-width: 460px; line-height: 1.35; }
+.opt-label { display: inline-block; width: 100%; }
+
+/* About page: dataset variables */
+.var-group { margin: 10px 0 14px; }
+.var-group > summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 4px 0; }
+.var-group > p { margin: 4px 0 8px; }
+.vars-table th, .vars-table td { font-size: .86rem; }
+.vars-table th { width: auto; }
+.vars-table td:first-child { font-weight: 600; white-space: nowrap; }
+.vars-table td:nth-child(2), .vars-table td:nth-child(4) { white-space: nowrap; }
+.vars-table code { font-size: .8rem; color: var(--muted); }

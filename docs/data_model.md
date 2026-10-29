@@ -55,6 +55,10 @@ Put `Y` in a flag column to make a `buildings` column appear in the correspondin
 
 Columns without any value are hidden automatically until data is added.
 
+The `label`, `unit` and `description` of each row are shown as hover text (with the number of buildings that
+have a value) on the parameter options of every dropdown and on the column headers of the data table.
+Write the description so that a user unfamiliar with the frameworks understands what the parameter measures.
+
 ## Adding data
 
 - **New building:** add a row to `buildings` with a unique `building_id` and `latitude`/`longitude`.

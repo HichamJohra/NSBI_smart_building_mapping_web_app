@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from dash import ALL, MATCH, Input, Output, Patch, State, callback, ctx, dcc, html, no_update
 
-from components.data import columns_for, dropdown_options, fmt, get_data, is_numeric, label, unit
+from components.data import columns_for, dropdown_options, fmt, get_data, is_numeric, label, tooltip, unit
 from components.figures import map_figure, scatter_figure
 from components.ui import card, control, graph, kpi
 
@@ -41,7 +41,7 @@ def _column_defs(df: pd.DataFrame) -> list[dict]:
     order += [c for c in df.columns if c not in order]
     defs = []
     for c in order:
-        d = {"field": c, "headerName": label(c), "headerTooltip": label(c), "minWidth": 120}
+        d = {"field": c, "headerName": label(c), "headerTooltip": tooltip(c), "minWidth": 120}
         if is_numeric(c):
             d["filter"] = "agNumberColumnFilter"
             if unit(c) in ("%",) or unit(c).startswith("level"):

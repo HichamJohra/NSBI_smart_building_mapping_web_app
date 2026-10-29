@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+from dash import html
 
 DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "smart_buildings_dataset.xlsx"
 
@@ -82,6 +83,23 @@ def unit(col: str) -> str:
     return _meta(col).get("unit") or ""
 
 
+def description(col: str) -> str:
+    """Description of a column from the data dictionary ('' if none)."""
+    return str(_meta(col).get("description") or "").strip()
+
+
+def tooltip(col: str) -> str:
+    """Hover text for a parameter: label, unit, description and data coverage."""
+    lines = [label(col)]
+    desc = description(col)
+    if desc:
+        lines.append(desc)
+    b = get_data().buildings
+    if col in b.columns:
+        lines.append(f"Values available for {int(b[col].notna().sum())} of {len(b)} buildings.")
+    return "\n".join(lines)
+
+
 def is_numeric(col: str) -> bool:
     b = get_data().buildings
     return col in b.columns and pd.api.types.is_numeric_dtype(b[col])
@@ -110,13 +128,24 @@ def columns_for(flag: str, kind: str | None = None) -> list[str]:
     return out
 
 
+def hover_label(text: str, title: str) -> html.Span:
+    """Option label with a hover description (browser tooltip). Used in dropdown menus: the tooltip
+    shows when hovering an option in the open list and when hovering the selected value."""
+    return html.Span(text, title=title, className="opt-label")
+
+
 def dropdown_options(cols: list[str]) -> list[dict]:
-    """Dropdown options grouped by dictionary group (shown as 'Group · Label')."""
+    """Dropdown options shown as 'Group · Label', with the parameter description on hover.
+
+    Labels are components (for the hover text), so 'search' holds the searchable text:
+    group, label and column name.
+    """
     opts = []
     for c in cols:
         m = _meta(c)
         grp = m.get("group") or ""
-        opts.append({"label": f"{grp} · {label(c)}" if grp else label(c), "value": c})
+        text = f"{grp} · {label(c)}" if grp else label(c)
+        opts.append({"label": hover_label(text, tooltip(c)), "value": c, "search": f"{text} {c}"})
     return opts
 
 
@@ -146,7 +175,15 @@ def sbp_level_name(level) -> str:
 
 def building_options() -> list[dict]:
     b = get_data().buildings
-    return [{"label": f"{r.short_name} — {r.building_name}", "value": r.building_id} for r in b.itertuples()]
+    def title(r):
+        parts = [str(x) for x in (getattr(r, "building_type", None), getattr(r, "city", None),
+                                  getattr(r, "construction_period", None)) if isinstance(x, str) and x]
+        return " · ".join(parts)
+    opts = []
+    for r in b.itertuples():
+        text = f"{r.short_name} — {r.building_name}"
+        opts.append({"label": hover_label(text, title(r) or text), "value": r.building_id, "search": text})
+    return opts
 
 
 def get_building(building_id: str) -> pd.Series | None:

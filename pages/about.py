@@ -2,10 +2,12 @@
 import dash
 from dash import dcc, html
 
-from components.data import SBP_LEVEL_NAMES, get_data
+from components.data import SBP_LEVEL_NAMES, get_data, label, unit
 from components.ui import card
 
 dash.register_page(__name__, path="/about", name="About", order=99, title="About · NSBI Smart Buildings")
+
+SBP_LEVELS_DESC: list[int] = list(range(4, -3, -1))  # SbP levels 4 … −2, highest first
 
 REPOSITORY_URL = "https://github.com/HichamJohra/NSBI_smart_building_mapping_web_app"
 CONTACT_NAME, CONTACT_EMAIL = "Hicham Johra", "hicham.johra@sintef.no"
@@ -40,10 +42,36 @@ This web app maps and compares the **smartness** of real buildings, as assessed 
   expresses the result on a scale from −2 to 4.
 """
 
+# Short explanation of each variable group (keys = 'group' column of the data_dictionary sheet).
+# Groups that are not listed here are still shown, without an introduction.
+GROUP_INTROS = {
+    "Identity": "Who and what the building is: identifiers, names and the owner or project partner.",
+    "Location": "Where the building is. Coordinates are used for the map; check the location precision before "
+                "reading positions as exact addresses.",
+    "Building": "Physical and historical characteristics of the building. The construction or latest renovation "
+                "period reflects the age of the technical systems, which strongly influences smart readiness.",
+    "SRI": "Headline Smart Readiness Indicator results. The SRI rates the capability of the technical building "
+           "systems (not their measured performance) to use smart technologies, in % of the maximum achievable "
+           "for this building, and on a 7-class scale.",
+    "SRI key functionality": "The SRI total score is aggregated from three key functionalities. Each one groups "
+                             "some of the seven impact criteria below.",
+    "SRI impact criteria": "Seven criteria describing what the smart-ready services achieve. Each criterion is "
+                           "scored across all technical domains and aggregated with weighting factors that "
+                           "depend on the building type and climate.",
+    "SRI technical domains": "Nine groups of technical systems in which smart-ready services are assessed. A "
+                             "domain absent from the building is not assessed (empty) and does not lower the "
+                             "score. The building detail page shows the full domain × impact matrix.",
+    "Smart by Powerhouse": "Overall Smart by Powerhouse (SbP) ambition / maturity level, from −2 (no "
+                           "technological equipment) to 4 (smart cognitive); see the level table below.",
+    "Smart by Powerhouse topics": "SbP assesses functional requirements in five topics. For each topic the "
+                                  "dataset gives the level reached (−2 to 4) and the share of available points "
+                                  "obtained (%), from which the level is derived.",
+    "Metadata": "How and when the assessments were made, and notes on data quality and comparability.",
+    "References": "Where the information comes from: a main reference, and separate references for the building "
+                  "characteristics and for the performance results (they may be identical).",
+}
+
 CAVEATS = """
-* The EDISON pilots were assessed in February 2026 with the official SRI calculation sheet (v4.5) and cross-checked
-  with the U-CERT online tool. The Ålesund buildings (B01–B10) were assessed with **Norway-specific SRI weighting
-  factors** (Avendaño et al., 2024), so the two groups are not strictly comparable.
 * SRI domains that are not present in a building are shown as *not assessed* (empty), not as 0 %.
   Domain scores can be negative (e.g. EV charging) when a service level penalises the score.
 * Map positions flagged *approximate* or *anonymised* are not exact building locations. The Ålesund buildings are
@@ -58,6 +86,36 @@ def _table(header, rows):
                       className="info-table")
 
 
+def _variables_section() -> html.Div:
+    """All dataset variables, grouped as in the data dictionary, with unit, description and coverage."""
+    data = get_data()
+    b, d = data.buildings, data.dictionary
+    n = len(b)
+    groups = list(dict.fromkeys(g for g in d["group"] if g))
+    blocks = [html.P(f"The dataset currently contains {n} buildings described by {len(d)} variables, organised "
+                     f"in {len(groups)} groups. Hover a variable in any dropdown or table header of the app to "
+                     "see the same description. The column name is the name used in the Excel file.")]
+    for g in groups:
+        rows = d[d["group"] == g]
+        table = html.Table(
+            [html.Tr([html.Th("Variable"), html.Th("Unit"), html.Th("Description"), html.Th("Available"),
+                      html.Th("Column name")])]
+            + [html.Tr([
+                html.Td(label(c, with_unit=False)),
+                html.Td(unit(c) or "–"),
+                html.Td(desc),
+                html.Td(f"{int(b[c].notna().sum())} / {n}" if c in b.columns else "–"),
+                html.Td(html.Code(c)),
+            ]) for c, desc in zip(rows["column"], rows["description"])],
+            className="info-table vars-table")
+        blocks.append(html.Details(open=False, className="var-group", children=[
+            html.Summary(f"{g} ({len(rows)} variable{'s' if len(rows) != 1 else ''})"),
+            html.P(GROUP_INTROS.get(g, ""), className="muted") if GROUP_INTROS.get(g) else None,
+            table,
+        ]))
+    return html.Div(blocks)
+
+
 def layout(**_):
     src = get_data().sources
     src_rows = []
@@ -69,11 +127,12 @@ def layout(**_):
         html.Div(className="page-head", children=[html.H1("About"),
                                                   html.P("Frameworks, scales, data sources and caveats.")]),
         card(dcc.Markdown(INTRO), title="What is shown"),
+        card(_variables_section(), title="Dataset variables"),
         html.Div(className="grid-2", children=[
             card(_table(["SRI class", "Total score"], SRI_CLASSES), title="SRI classes"),
             card(_table(["Level", "Name", "Description"],
                         [[f"{k:+d}" if k else "0", SBP_LEVEL_NAMES[k], SBP_DESCRIPTIONS[k]]
-                         for k in sorted(SBP_LEVEL_NAMES, reverse=True)]),
+                         for k in SBP_LEVELS_DESC]),
                  title="Smart by Powerhouse levels (SINTEF tool implementation)"),
         ]),
         card(dcc.Markdown(CAVEATS), title="Data notes and caveats"),
