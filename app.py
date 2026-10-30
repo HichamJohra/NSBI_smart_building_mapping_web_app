@@ -2,6 +2,8 @@
 
 Run locally:  python app.py   ->  http://127.0.0.1:8050
 """
+import os
+
 import dash
 from dash import Dash, dcc, html
 
@@ -12,6 +14,9 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 server = app.server  # WSGI entry point for later deployment (gunicorn app:server)
+# Refuse oversized requests before they reach the callbacks (uploads are limited to MAX_UPLOAD_MB on the
+# 'Contribute data' page; base64 encoding adds ~35 %).
+server.config["MAX_CONTENT_LENGTH"] = int(float(os.environ.get("MAX_UPLOAD_MB", "5")) * 1.5 * 1024 * 1024) + 2 * 1024 * 1024
 # The browser-tab icon is assets/favicon.ico (SINTEF), picked up automatically by Dash.
 
 # Partner logos shown at the top right of every page (files in assets/logos/): (file, name, link)

@@ -4,3 +4,5 @@ plotly>=5.24
 pandas>=2.2
 numpy>=1.26
 openpyxl>=3.1
+defusedxml>=0.7  # used automatically by openpyxl: safe parsing of uploaded Excel files (XML bombs)
+gunicorn>=22.0  # production web server (used in the Docker image, Linux)

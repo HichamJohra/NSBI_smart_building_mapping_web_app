@@ -65,6 +65,9 @@ Write the description so that a user unfamiliar with the frameworks understands 
 - **New parameter:** add a column to `buildings` and a row to `data_dictionary` (column name, label, unit,
   group, dtype, description, optional hover flag).
 - Save, close Excel (the `~$` lock file is git-ignored), refresh the browser.
+- **Contributions from users** arrive through the *Contribute data* page and are collected with
+  `tools/fetch_submissions.py` (see [deployment.md](deployment.md)); review them, then copy accepted rows here.
+  The form and the downloadable template are generated from this workbook, so new parameters appear there too.
 
 ## Current content
 

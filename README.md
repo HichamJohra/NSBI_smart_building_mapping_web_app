@@ -21,9 +21,13 @@ python app.py                 # -> http://127.0.0.1:8050
 | `pages/home.py` | Dashboard: KPIs, add/remove filters, bubble map, statistics cards, XY correlation explorer, full dataset table |
 | `pages/building.py` | Building detail: characteristics, building performance indicators, location map, SRI key functionalities, impacts, domains, detailed matrix, SbP topics |
 | `pages/compare.py` | Compare 2–6 buildings on radar and bar charts |
+| `pages/contribute.py` | Contribute data: online form or Excel template upload, validated and stored for review |
 | `pages/about.py` | Frameworks (SRI, Smart by Powerhouse), scales, sources, caveats |
 | `components/data.py` | Excel loading (auto-reload on file change) and data-dictionary helpers |
 | `components/figures.py` | Plotly figure builders |
+| `components/submissions.py` | Data contributions: template, validation, anti-spam checks, storage |
+| `tools/fetch_submissions.py` | Maintainer script: download (and delete) the contributions from the server |
+| `Dockerfile`, `.dockerignore` | Container image for Docker / Google Cloud Run (see `docs/deployment.md`) |
 | `assets/style.css` | Styling (auto-loaded by Dash) |
 | `assets/favicon.ico`, `assets/logos/` | SINTEF browser-tab icon; SINTEF and IBPSA Nordic logos (top right of every page, linked to their websites); NSBI logo (About page) |
 | `data/smart_buildings_dataset.xlsx` | The dataset |

@@ -11,9 +11,9 @@ Extracts
 and injects them into explorer_template.html -> NSBI_project_explorer.html
 
 Location in the repository:  docs/project_graph_explorer/
-The project root is found automatically (two folders up). Python code under docs/
+The project root is found automatically (two folders up). Python code under docs/ and tools/
 (documentation tooling, e.g. this script) is analysed too but tagged as "tooling": the
-explorer hides it by default and shows it with the "Include docs/ tooling code" checkbox.
+explorer hides it by default and shows it with the "Include tooling code" checkbox.
 
 Usage (from the project root, in the PyCharm Terminal):
     .venv\Scripts\python.exe docs/project_graph_explorer/build_project_explorer.py
@@ -33,7 +33,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_ROOT = HERE.parents[1]  # docs/project_graph_explorer -> project root
-TOOLING_PREFIXES = ("docs/",)  # code that is documentation tooling, not part of the app
+TOOLING_PREFIXES = ("docs/", "tools/")  # documentation / maintenance tooling, not part of the app
 IGNORE_DIRS = {".git", ".venv", "venv", "env", ".idea", ".vscode", "__pycache__", ".pytest_cache"}
 TEXT_EXT = {".py", ".md", ".txt", ".css", ".js", ".html", ".toml", ".cfg", ".ini", ".yml", ".yaml", ".json", ""}
 CALLBACK_DECORATORS = {"callback", "dash.callback", "app.callback", "clientside_callback"}

@@ -9,11 +9,14 @@ pages/                  one module per page, each calls dash.register_page(...)
   home.py               "/"          Dashboard: KPIs, dynamic filters, bubble map, statistics, XY explorer, data table
   building.py           "/building"  Building detail (query string ?building_id=...)
   compare.py            "/compare"   Compare 2–6 buildings
+  contribute.py         "/contribute" Contribute data (form / Excel template upload)
   about.py              "/about"     Frameworks, scales, sources, caveats
 components/             shared, page-independent code
   data.py               Excel loading (cached, auto-reload on file change) + data-dictionary helpers
   figures.py            Plotly figure builders (map, scatter, bars, radar, heatmap)
   ui.py                 small layout helpers (card, control, kpi, graph)
+  submissions.py        data contributions: template, validation, anti-spam, storage (SUBMISSIONS_DIR)
+tools/                  maintenance scripts run by the maintainer (fetch_submissions.py)
 assets/style.css        styling, auto-loaded by Dash
 assets/favicon.ico      browser-tab icon (SINTEF), served automatically by Dash
 assets/logos/           SINTEF and IBPSA Nordic logos (navigation bar), NSBI logo (About page)

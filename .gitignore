@@ -23,3 +23,7 @@ desktop.ini
 
 # Local secrets
 .env
+
+# Data contributions (stored by the app locally / downloaded with tools/fetch_submissions.py)
+submissions/
+downloaded_submissions/

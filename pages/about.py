@@ -201,6 +201,8 @@ def layout(**_):
             "that fit its type (numeric or category). Refresh the browser to see the changes."),
             title="Updating the data"),
         card([
+            html.P(["To share data on a building, use the ", dcc.Link("Contribute data", href="/contribute"),
+                    " page (online form or Excel template)."]),
             html.P(["The data and the code of this web app can be found on GitHub: ",
                     html.A(REPOSITORY_URL, href=REPOSITORY_URL, target="_blank"), "."]),
             html.P(["For comments and suggestions for improvement, contact ", _ext(CONTACT_NAME, CONTACT_URL), " (",

@@ -27,7 +27,7 @@ Optional arguments:
 |---|---|---|
 | `--root DIR` | two folders above the script | Project root |
 | `--out FILE` | `NSBI_project_explorer.html` here | Output file |
-| `--include-docs` | off | Pre-tick the "Include docs/ tooling code" checkbox in the generated page |
+| `--include-docs` | off | Pre-tick the "Include tooling code (docs/, tools/)" checkbox in the generated page |
 
 ## Files
 
@@ -37,6 +37,6 @@ Optional arguments:
 | `explorer_template.html` | Page template (HTML/CSS/JS, no external libraries); the data is injected at `/*__DATA__*/null` |
 | `NSBI_project_explorer.html` | Generated output |
 
-Python code under `docs/` (documentation tooling such as `build_project_explorer.py`) is analysed but hidden
-by default, because it is not part of the app. Tick **Include docs/ tooling code** in the explorer (structure,
+Python code under `docs/` and `tools/` (documentation and maintenance tooling) is analysed but hidden
+by default, because it is not part of the app. Tick **Include tooling code (docs/, tools/)** in the explorer (structure,
 imports and function-call views) to show it, or generate the page with `--include-docs` to have it shown by default.
