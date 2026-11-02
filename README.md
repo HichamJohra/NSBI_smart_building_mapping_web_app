@@ -58,4 +58,5 @@ To add a parameter, add a column to `buildings` and a row to `data_dictionary`. 
 to `buildings`. Refresh the browser: the file is re-read automatically when it changes.
 
 Current content: 7 EDISON pilot buildings (SINTEF Notes, EDISON D1.1a, 2026) and 10 municipal buildings in
-Ålesund (Campodonico Avendaño et al., 2024, *Energy and Buildings* 314, 114234).
+Ålesund (Campodonico Avendaño et al., 2024, *Energy and Buildings* 314, 114234), and 3 pilot buildings of the
+H2020 ARV project (Oslo, Trento, Karviná; ARV D8.4, 2026).

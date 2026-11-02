@@ -85,7 +85,10 @@ CAVEATS = """
 * SRI domains that are not present in a building are shown as *not assessed* (empty), not as 0 %.
   Domain scores can be negative (e.g. EV charging) when a service level penalises the score.
 * Map positions flagged *approximate* or *anonymised* are not exact building locations. The Ålesund buildings are
-  anonymised in the source and are placed around the city centre.
+  anonymised in the source and are placed around the city centre. The Trento ex-Zuffo building is placed at the
+  centre of the ex-Zuffo car park.
+* Only part of the results is published for some buildings (e.g. no Smart by Powerhouse for the ARV pilots, SRI
+  total only for Karviná); missing values are left empty.
 * Reference years given as a period (e.g. 1960–1990) use the period midpoint for plotting.
 * The sample is small: correlations are indicative, not statistically robust.
 """

@@ -74,5 +74,10 @@ Write the description so that a user unfamiliar with the frameworks understands 
 - 7 EDISON pilot buildings – SINTEF Notes, EDISON D1.1a SRI/SbP assessment (2026): full SRI and SbP detail.
 - 10 municipal buildings in Ålesund (anonymised) – Campodonico Avendaño et al. (2024), *Energy and Buildings*
   314, 114234, and REHVA Journal 05/2024: SRI total, key functionalities, SbP level, year.
+- 3 ARV pilot buildings (H2020 ARV, D8.4 Evaluation results reports, 2026), no SbP:
+  - ARV-01 Voldsløkka school S-building, Oslo: full SRI detail (EC sheet v4.5) and 2024 PV indicators;
+  - ARV-02 ex-Zuffo service hub, Trento: SRI total, key functionalities, 3 domains, 1 impact (method A);
+  - ARV-03 Karviná Mizerov Health Care Centre: SRI total and monitored values after renovation.
+  The `notes` column gives baselines, site totals and values that could not be normalised per m².
 
 Map positions marked *approximate* or *anonymised* in `location_precision` are not exact building locations.
