@@ -6,7 +6,7 @@ They are reviewed by the maintainer before anything is added to the published da
 from typing import Any
 
 import dash
-from dash import ALL, Input, Output, State, callback, ctx, dcc, html
+from dash import ALL, Input, Output, State, callback, ctx, dcc, html, no_update
 
 from components import submissions as sub
 from components.data import all_columns, get_data, is_numeric, label, tooltip, unit
