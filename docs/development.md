@@ -26,13 +26,21 @@
 
 ## Git workflow
 
+`main` is protected on GitHub (ruleset: pull request required, no force push, no deletion). Work on `dev`:
+
 ```
+git switch dev                # work branch
 git pull                      # before starting
 git status                    # check: no .venv, .idea, __pycache__
 git add .
 git commit -m "Short description"
-git push
+git push                      # -> origin/dev
 ```
+
+When `dev` is stable: on GitHub, open a pull request `dev` → `main` and merge it. Then update the local `main`
+with `git switch main`, `git pull`, `git switch dev`.
+
+Line endings are fixed to LF by `.gitattributes` (binary files such as `.xlsx` and `.png` are never converted).
 
 Working documents (reports, drafts, raw material) are kept **outside** the repository.
 
