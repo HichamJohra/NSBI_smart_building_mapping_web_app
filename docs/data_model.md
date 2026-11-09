@@ -71,7 +71,9 @@ Write the description so that a user unfamiliar with the frameworks understands 
 
 ## Current content
 
-- 7 EDISON pilot buildings – SINTEF Notes, EDISON D1.1a SRI/SbP assessment (2026): full SRI and SbP detail.
+- 7 EDISON pilot buildings (anonymised: generic names "EDISON pilot 1–7", owner "EDISON project partner", no street
+  address, position shifted at random by 0.8–2 km) – SINTEF Notes, EDISON D1.1a SRI/SbP assessment (2026):
+  full SRI and SbP detail.
 - 10 municipal buildings in Ålesund (anonymised) – Campodonico Avendaño et al. (2024), *Energy and Buildings*
   314, 114234, and REHVA Journal 05/2024: SRI total, key functionalities, SbP level, year.
 - 3 ARV pilot buildings (H2020 ARV, D8.4 Evaluation results reports, 2026), no SbP:
