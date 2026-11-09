@@ -11,7 +11,7 @@ Run on your own PC (not part of the web app). Each submission is an Excel file w
 From Google Cloud Storage (production):
     pip install -r tools/requirements-tools.txt          # once
     gcloud auth application-default login                # once, with your Google account
-    python tools/fetch_submissions.py --bucket nsbi-submissions
+    python tools/fetch_submissions.py --bucket BUCKET_NAME   # name: see the maintainer's private notes
 
 From a local folder (development, when the app runs on your PC):
     python tools/fetch_submissions.py --local-dir submissions

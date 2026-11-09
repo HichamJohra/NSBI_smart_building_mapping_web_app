@@ -1,0 +1,15 @@
+# Store and check out text files with LF line endings on every OS (no LF/CRLF warnings on Windows)
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files: never touch line endings
+*.xlsx binary
+*.docx binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
