@@ -30,6 +30,48 @@ SBP_LEVEL_NAMES = {
     4: "Smart cognitive",
 }
 
+# ANSI/ASHRAE Standard 169 climate zones: (code, name, thermal criterion). HDD18 / CDD10 = heating / cooling
+# degree-days with base 18 °C / 10 °C. Moisture letter: A Humid, B Dry, C Marine (zones 7 and 8 have no letter).
+# Dataset values are written "code (name)", e.g. "6A (Cold – Humid)" (see ASHRAE_ZONE_LABELS).
+ASHRAE_CLIMATE_ZONES = [
+    ("0A", "Extremely Hot – Humid", "CDD10 > 6000"), ("0B", "Extremely Hot – Dry", "CDD10 > 6000"),
+    ("1A", "Very Hot – Humid", "5000 < CDD10 ≤ 6000"), ("1B", "Very Hot – Dry", "5000 < CDD10 ≤ 6000"),
+    ("2A", "Hot – Humid", "3500 < CDD10 ≤ 5000"), ("2B", "Hot – Dry", "3500 < CDD10 ≤ 5000"),
+    ("3A", "Warm – Humid", "CDD10 ≤ 3500 and HDD18 ≤ 2000"), ("3B", "Warm – Dry", "CDD10 ≤ 3500 and HDD18 ≤ 2000"),
+    ("3C", "Warm – Marine", "HDD18 ≤ 2000"),
+    ("4A", "Mixed – Humid", "CDD10 ≤ 3500 and 2000 < HDD18 ≤ 3000"),
+    ("4B", "Mixed – Dry", "CDD10 ≤ 3500 and 2000 < HDD18 ≤ 3000"),
+    ("4C", "Mixed – Marine", "2000 < HDD18 ≤ 3000"),
+    ("5A", "Cool – Humid", "3000 < HDD18 ≤ 4000"), ("5B", "Cool – Dry", "3000 < HDD18 ≤ 4000"),
+    ("5C", "Cool – Marine", "3000 < HDD18 ≤ 4000"),
+    ("6A", "Cold – Humid", "4000 < HDD18 ≤ 5000"), ("6B", "Cold – Dry", "4000 < HDD18 ≤ 5000"),
+    ("7", "Very Cold", "5000 < HDD18 ≤ 7000"),
+    ("8", "Subarctic/Arctic", "HDD18 > 7000"),
+]
+ASHRAE_ZONE_CODES = [z[0] for z in ASHRAE_CLIMATE_ZONES]
+ASHRAE_ZONE_LABELS = [f"{code} ({name})" for code, name, _ in ASHRAE_CLIMATE_ZONES]  # values used in the dataset
+
+# Information validation status of a building entry, from least to most checked: (value, meaning)
+VALIDATION_STATUSES = [
+    ("Incomplete", "Key information is missing; the entry needs to be completed."),
+    ("Incorrect", "Known errors or deliberately altered data (e.g. anonymised name or shifted location); "
+                  "do not use as exact."),
+    ("Extracted by AI", "Taken from the sources by an AI assistant; not yet checked."),
+    ("Validated by AI", "Cross-checked against the sources by an AI assistant."),
+    ("Validated by project/pilot owner", "Checked and confirmed by the building owner or project partner."),
+    ("Validated by external human validator", "Checked by an independent person against the sources."),
+]
+VALIDATION_STATUS_VALUES = [s[0] for s in VALIDATION_STATUSES]
+
+# Categorical parameters with a natural order (used for filter lists, legends and colours instead of A–Z)
+CATEGORY_ORDER = {"ashrae_climate_zone": ASHRAE_ZONE_LABELS, "validation_status": VALIDATION_STATUS_VALUES}
+
+
+def sort_categories(col: str | None, values) -> list:
+    """Sort category values: natural order for known parameters (climate zone, validation status), else A–Z."""
+    order = {v: i for i, v in enumerate(CATEGORY_ORDER.get(col or "", []))}
+    return sorted(values, key=lambda v: (order.get(str(v), len(order)), str(v)))
+
 
 @dataclass
 class Dataset:

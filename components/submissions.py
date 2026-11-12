@@ -39,7 +39,7 @@ from openpyxl.xml import DEFUSEDXML  # True when defusedxml is installed: openpy
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from components.data import all_columns, description, get_data, is_numeric, label, unit
+from components.data import ASHRAE_ZONE_CODES, ASHRAE_ZONE_LABELS, all_columns, description, get_data, is_numeric, label, unit
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SUBMISSIONS_DIR = Path(os.environ.get("SUBMISSIONS_DIR", PROJECT_ROOT / "submissions"))
@@ -55,7 +55,11 @@ REQUIRED = ["building_name", "city", "country", "latitude", "longitude", "buildi
 RESULT_GROUPS = ["SRI", "SRI key functionality", "SRI impact criteria", "SRI technical domains",
                  "Smart by Powerhouse", "Smart by Powerhouse topics", "Building performance"]
 # Columns not offered to contributors (assigned by the maintainer)
-NOT_CONTRIBUTED = {"building_id"}
+NOT_CONTRIBUTED = {"building_id", "validation_status"}
+# Categorical columns that only accept a fixed list of values (compared case-insensitively, stored as listed)
+ALLOWED_VALUES = {"ashrae_climate_zone": ASHRAE_ZONE_LABELS}
+# Accepted short forms, mapped to the stored value (e.g. climate zone code "6a" -> "6A (Cold – Humid)")
+VALUE_ALIASES = {"ashrae_climate_zone": dict(zip(ASHRAE_ZONE_CODES, ASHRAE_ZONE_LABELS))}
 
 # Anti-spam settings
 MIN_SECONDS_ON_PAGE = 5          # faster than this = bot
@@ -140,6 +144,16 @@ def clean_record(raw: dict) -> tuple[dict, list[str]]:
             rec[col] = num
         else:
             s = str(v).strip()
+            if col in ALLOWED_VALUES:
+                accepted = {a.upper(): a for a in ALLOWED_VALUES[col]}
+                accepted.update({k.upper(): v for k, v in VALUE_ALIASES.get(col, {}).items()})
+                match = accepted.get(" ".join(s.split()).upper())
+                if match is None:
+                    short = list(VALUE_ALIASES.get(col, {})) or ALLOWED_VALUES[col]
+                    errors.append(f"{label(col, with_unit=False)}: '{s}' is not a valid value "
+                                  f"({', '.join(short)}).")
+                    continue
+                s = match
             if len(s) > MAX_TEXT_LENGTH:
                 errors.append(f"{label(col)}: text is too long (max {MAX_TEXT_LENGTH} characters).")
             rec[col] = s[:MAX_TEXT_LENGTH]
