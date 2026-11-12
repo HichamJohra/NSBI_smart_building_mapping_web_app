@@ -59,4 +59,7 @@ to `buildings`. Refresh the browser: the file is re-read automatically when it c
 
 Current content: 7 EDISON pilot buildings (SINTEF Notes, EDISON D1.1a, 2026) and 10 municipal buildings in
 Ålesund (Campodonico Avendaño et al., 2024, *Energy and Buildings* 314, 114234), and 3 pilot buildings of the
-H2020 ARV project (Oslo, Trento, Karviná; ARV D8.4, 2026).
+H2020 ARV project (Oslo, Trento, Karviná; ARV D8.4, 2026), 1 European Commission SRI case study (NeoBuild,
+Luxembourg), 36 buildings of the H2020 TIMEPAC project (D2.4, 2023; Austria, Croatia, Cyprus, Italy, Slovenia,
+Spain) and 9 pilots of the Horizon Europe SmartLivingEPC project (D2.4; Greece, Cyprus, Estonia, Spain).
+66 buildings in total.
