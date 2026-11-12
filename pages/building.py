@@ -85,6 +85,15 @@ def _performance_table(r: pd.Series) -> list:
             html.Table(rows, className="info-table")]
 
 
+def _status_level(status: str | None) -> str:
+    """CSS colour class of a validation status: warn (incomplete / incorrect), ai (AI), ok (validated by a person)."""
+    if status in ("Incomplete", "Incorrect"):
+        return "warn"
+    if status in ("Extracted by AI", "Validated by AI"):
+        return "ai"
+    return "ok"
+
+
 @callback(Output("bd-content", "children"), Input("bd-select", "value"))
 def _render(building_id):
     r = get_building(building_id) if building_id else None
@@ -97,8 +106,12 @@ def _render(building_id):
         kpi_static("SRI total score", fmt("sri_total_pct", r.get("sri_total_pct")), str(r.get("sri_class") or ""),
                    description=tooltip("sri_total_pct") + "\n\n" + tooltip("sri_class")),
         kpi_static("SbP level", fmt("sbp_level", sbp), sbp_level_name(sbp), description=tooltip("sbp_level")),
-        kpi_static("Location", str(r.get("city", "")), str(r.get("county", "")),
-                   description="City and county of the building.\n" + tooltip("location_precision")),
+        kpi_static("Location", str(r.get("city", "")),
+                   " · ".join(s for s in [str(r.get("county") or ""),
+                                          f"ASHRAE {r['ashrae_climate_zone']}"
+                                          if isinstance(r.get("ashrae_climate_zone"), str) else ""] if s),
+                   description="City and county of the building.\n" + tooltip("location_precision") + "\n\n"
+                               + tooltip("ashrae_climate_zone")),
         kpi_static("Period", str(r.get("construction_period", "")), str(r.get("building_category", "")),
                    description=tooltip("construction_period") + "\n\n" + tooltip("building_category")),
     ])
@@ -122,8 +135,14 @@ def _render(building_id):
     else:
         graphs.append(card(html.P("Only total scores and key functionalities are published for this building; "
                                   "no impact, domain or detailed results are available.", className="muted")))
+    status = r.get("validation_status")
+    status_badge = html.Div(
+        [html.Span("Information validation status: ", className="muted"),
+         html.Span(status, className=f"status-badge status-{_status_level(status)}")],
+        title=tooltip("validation_status"), className="status-line") if isinstance(status, str) and status else None
     return html.Div([
         html.H2(r["building_name"], className="building-title"),
+        status_badge,
         kpis,
         html.Div(className="grid-2 bd-top", children=[
             html.Div(className="bd-col", children=[

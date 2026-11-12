@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from dash import ALL, MATCH, Input, Output, Patch, State, callback, ctx, dcc, html, no_update
 
-from components.data import (columns_for, dropdown_options, fmt, get_data, has_data, is_numeric, label, tooltip,
-                             unit)
+from components.data import (columns_for, dropdown_options, fmt, get_data, has_data, is_numeric, label,
+                             sort_categories, tooltip, unit)
 from components.figures import map_figure, scatter_figure
 from components.ui import PERSIST, card, control, graph, kpi
 
@@ -59,7 +59,7 @@ def _cat_values(col: str | None) -> list[Any]:
     if not col:
         return []
     vals = get_data().buildings[col].dropna().astype(str).unique()
-    return [{"label": v, "value": v} for v in sorted(vals)]
+    return [{"label": v, "value": v} for v in sort_categories(col, vals)]
 
 
 def _column_defs(df: pd.DataFrame) -> list[dict]:

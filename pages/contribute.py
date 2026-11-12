@@ -40,11 +40,17 @@ def _field(col: str) -> html.Div:
     if col in TEXTAREA_COLUMNS:
         return html.Div([head, dcc.Textarea(id=fid, className="field-input field-area"), hint],
                         className="sub-field sub-field-wide")
-    values = get_data().buildings[col].dropna().astype(str).unique() if col in get_data().buildings.columns else []
+    if col in sub.ALLOWED_VALUES:  # fixed list (e.g. ASHRAE climate zones), in its natural order
+        values = list(sub.ALLOWED_VALUES[col])
+        short = list(sub.VALUE_ALIASES.get(col, {})) or values
+        hint = html.Div("Choose from the list or type the code: " + ", ".join(short), className="field-hint")
+    else:
+        values = sorted(get_data().buildings[col].dropna().astype(str).unique()) \
+            if col in get_data().buildings.columns else []
     dl_id = f"sub-dl-{col}"
     inp = dcc.Input(id=fid, type="text", list=dl_id, className="field-input", debounce=True,
                     placeholder="Type or choose…" if len(values) else "")
-    return html.Div([head, inp, html.Datalist(id=dl_id, children=[html.Option(value=v) for v in sorted(values)]),
+    return html.Div([head, inp, html.Datalist(id=dl_id, children=[html.Option(value=v) for v in values]),
                      hint], className="sub-field")
 
 

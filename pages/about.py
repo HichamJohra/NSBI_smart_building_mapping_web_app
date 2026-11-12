@@ -3,7 +3,8 @@ import dash
 from dash import dcc, html
 from dash.development.base_component import Component
 
-from components.data import SBP_LEVEL_NAMES, get_data, label, unit
+from components.data import (ASHRAE_CLIMATE_ZONES, SBP_LEVEL_NAMES, VALIDATION_STATUSES, get_data, label,
+                             unit)
 from components.ui import card
 
 dash.register_page(__name__, path="/about", name="About", order=99, title="About · NSBI Smart Buildings")
@@ -91,6 +92,12 @@ CAVEATS = """
   centre of the ex-Zuffo car park.
 * Only part of the results is published for some buildings (e.g. no Smart by Powerhouse for the ARV pilots, SRI
   total only for Karviná); missing values are left empty.
+* Most entries have the validation status *Extracted by AI*: they were taken from the sources by an AI assistant
+  and have not yet been checked by a person. The EDISON pilots are marked *Incorrect* because their identity and
+  location have been deliberately altered for anonymisation.
+* ASHRAE climate zones come from the nearest representative weather station listed in ASHRAE 169-2020 (e.g. Oslo
+  Blindern, Stavanger Våland, Vigra Ålesund, Bolzano for Trento, Ostrava Mošnov for Karviná); local conditions at
+  the building may differ slightly. For anonymised buildings the zone refers to their municipality.
 * Reference years given as a period (e.g. 1960–1990) use the period midpoint for plotting.
 * The sample is small: correlations are indicative, not statistically robust.
 """
@@ -196,6 +203,17 @@ def layout(**_):
                         [[f"{k:+d}" if k else "0", SBP_LEVEL_NAMES[k], SBP_DESCRIPTIONS[k]]
                          for k in SBP_LEVELS_DESC]),
                  title="Smart by Powerhouse levels (SINTEF tool implementation)"),
+        ]),
+        html.Div(className="grid-2", children=[
+            card(_table(["Zone", "Name", "Thermal criterion"], [list(z) for z in ASHRAE_CLIMATE_ZONES]),
+                 title="ASHRAE 169 climate zones",
+                 subtitle="HDD18 / CDD10 = heating / cooling degree-days, base 18 °C / 10 °C. Zones in this dataset "
+                          "are taken from the nearest representative weather station of ASHRAE 169-2020 "
+                          "(Addendum a, Table A-6)."),
+            card(_table(["Status", "Meaning"], [list(s) for s in VALIDATION_STATUSES]),
+                 title="Information validation status",
+                 subtitle="How far the information on each building has been checked (column "
+                          "'Information validation status')."),
         ]),
         card(dcc.Markdown(CAVEATS), title="Data notes and caveats"),
         card(_table(["ID", "Reference", "Used for"], src_rows), title="Sources"),

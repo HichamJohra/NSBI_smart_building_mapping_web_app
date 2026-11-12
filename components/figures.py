@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.colors import qualitative
 
-from components.data import columns_for, fmt, is_numeric, label, sbp_level_name
+from components.data import columns_for, fmt, is_numeric, label, sbp_level_name, sort_categories
 
 ACCENT = "#1f4e79"
 NA_GREY = "#b0b7c3"
@@ -107,7 +107,7 @@ def map_figure(df: pd.DataFrame, size_col: str | None, color_col: str | None,
     else:
         groups = (df[color_col].fillna("n/a").astype(str) if color_col
                   else pd.Series(["Buildings"] * len(df), index=df.index)).to_numpy()
-        for i, g in enumerate(sorted(set(groups))):
+        for i, g in enumerate(sort_categories(color_col, set(groups))):
             m = groups == g
             add(m, dict(size=sizes[m], color=NA_GREY if g == "n/a" else PALETTE[i % len(PALETTE)], opacity=0.85), g)
     center, zoom = _auto_view(df)
@@ -140,7 +140,7 @@ def scatter_figure(df: pd.DataFrame, x: str, y: str, color: str | None,
             showlegend=False))
     else:
         groups = d[color].fillna("n/a").astype(str) if color else pd.Series(["Buildings"] * len(d), index=d.index)
-        for i, g in enumerate(sorted(groups.unique())):
+        for i, g in enumerate(sort_categories(color, groups.unique())):
             m = (groups == g).to_numpy()
             fig.add_trace(go.Scatter(
                 x=d[x][m], y=d[y][m], mode=mode, text=d["short_name"][m], textposition="top center",
