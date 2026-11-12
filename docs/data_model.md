@@ -96,5 +96,15 @@ Write the description so that a user unfamiliar with the frameworks understands 
   - ARV-02 ex-Zuffo service hub, Trento: SRI total, key functionalities, 3 domains, 1 impact (method A);
   - ARV-03 Karviná Mizerov Health Care Centre: SRI total and monitored values after renovation.
   The `notes` column gives baselines, site totals and values that could not be normalised per m².
+- 1 European Commission SRI case study (ECS-01, NeoBuild Innovation Centre, Bettembourg, Luxembourg): SRI total,
+  7 impact criteria and 8 domains (detailed method, assessed by LIST); key functionalities computed from the impacts.
+- 36 TIMEPAC buildings (TPC-*; H2020 TIMEPAC D2.4, 2023) in Austria, Croatia, Cyprus, Italy, Slovenia and Spain:
+  SRI total and key functionalities with method B as main values (method A in `notes`). Where the source does not
+  publish the location (Austria, Croatia, Spain, Slovenia except SI-02) the building is placed at random within the
+  country (`Anonymised (country only)`, status `Incomplete`, no climate zone). TPC-SI02 is also the EC SRI case
+  study n°4 (health centre, Western Slovenia), which adds its impact and domain scores.
+- 9 SmartLivingEPC pilots (SLE-01…09; Horizon Europe SmartLivingEPC D2.4, section 2.6) in Greece, Cyprus, Estonia
+  and Leitza (Navarre, Spain): SRI total, key functionalities, 7 impacts and 9 domains read from charts. Private
+  dwellings in Leitza are anonymised (random position within about 1.5 km).
 
 Map positions marked *approximate* or *anonymised* in `location_precision` are not exact building locations.
