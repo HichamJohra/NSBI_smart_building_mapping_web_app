@@ -1,4 +1,5 @@
 """Main dashboard: filters, bubble map, statistics, XY correlation plot and full dataset table."""
+
 from typing import Any
 
 import dash
@@ -7,8 +8,18 @@ import numpy as np
 import pandas as pd
 from dash import ALL, MATCH, Input, Output, Patch, State, callback, ctx, dcc, html, no_update
 
-from components.data import (columns_for, dropdown_options, fmt, get_data, has_data, is_numeric, label,
-                             sort_categories, tooltip, unit)
+from components.data import (
+    columns_for,
+    dropdown_options,
+    fmt,
+    get_data,
+    has_data,
+    is_numeric,
+    label,
+    sort_categories,
+    tooltip,
+    unit,
+)
 from components.figures import map_figure, scatter_figure
 from components.ui import PERSIST, card, control, graph, kpi
 
@@ -21,7 +32,7 @@ BASEMAPS = [
     {"label": "Dark", "value": "carto-darkmatter"},
 ]
 COLORSCALES = ["Viridis", "RdYlGn", "Plasma", "Blues", "Turbo"]
-DEFAULT_CAT_FILTER = "main_reference"        # parameter pre-selected in the first category filter
+DEFAULT_CAT_FILTER = "main_reference"  # parameter pre-selected in the first category filter
 STAT_DEFAULTS = ["sri_total_pct", "sbp_level"]  # parameters pre-selected in the two statistics cards
 HIDDEN: Any = {"display": "none"}
 
@@ -30,18 +41,22 @@ HIDDEN: Any = {"display": "none"}
 SLIDER_TOOLTIP: Any = {"placement": "bottom", "always_visible": True}
 XY_OPTIONS: Any = [{"label": " Linear fit", "value": "trend"}, {"label": " Labels", "value": "labels"}]
 GRID_DEFAULT_COLDEF: Any = {"sortable": True, "filter": True, "floatingFilter": True, "resizable": True}
-GRID_OPTIONS: Any = {"pagination": True, "paginationPageSize": 20, "enableCellTextSelection": True,
-                     "tooltipShowDelay": 300}
+GRID_OPTIONS: Any = {
+    "pagination": True,
+    "paginationPageSize": 20,
+    "enableCellTextSelection": True,
+    "tooltipShowDelay": 300,
+}
 GRID_CSV_EXPORT: Any = {"fileName": "nsbi_smart_buildings.csv"}
 GRID_STYLE: Any = {"height": "560px", "width": "100%"}
 
 # Hover descriptions of the KPI cards (all KPIs are computed on the buildings matching the filters)
 KPI_HELP = {
     "n": "Buildings shown\nNumber of buildings that match all active filters. The map, statistics, correlation "
-         "plot and table show these buildings only.",
+    "plot and table show these buildings only.",
     "area": "Total surface area\nSum of the useful (heated) floor area, in m², of the buildings shown, counting "
-            "only buildings whose exact floor area is known (column 'Floor area'). Buildings with only a floor "
-            "area class are not included; the line below gives how many buildings are counted.",
+    "only buildings whose exact floor area is known (column 'Floor area'). Buildings with only a floor "
+    "area class are not included; the line below gives how many buildings are counted.",
     "countries": "Countries\nNumber of different countries among the buildings shown.",
     "mun": "Municipalities\nNumber of different municipalities (Norwegian: kommuner) among the buildings shown.",
 }
@@ -87,13 +102,26 @@ def _cat_row(index: int, param: str | None = None, values: list | None = None) -
     param = param if param in cols else None
     allowed = {o["value"] for o in _cat_values(param)}
     values = [v for v in (values or []) if v in allowed]
-    return html.Div(id={"type": "catf-row", "index": index}, className="filter-row", children=[
-        dcc.Dropdown(id={"type": "catf-param", "index": index}, options=dropdown_options(cols), value=param,
-                     placeholder="Choose a category parameter…"),
-        dcc.Dropdown(id={"type": "catf-vals", "index": index}, options=_cat_values(param), value=values, multi=True,
-                     placeholder="All values"),
-        html.Button("✕", id={"type": "catf-del", "index": index}, className="btn-icon", title="Remove this filter"),
-    ])
+    return html.Div(
+        id={"type": "catf-row", "index": index},
+        className="filter-row",
+        children=[
+            dcc.Dropdown(
+                id={"type": "catf-param", "index": index},
+                options=dropdown_options(cols),
+                value=param,
+                placeholder="Choose a category parameter…",
+            ),
+            dcc.Dropdown(
+                id={"type": "catf-vals", "index": index},
+                options=_cat_values(param),
+                value=values,
+                multi=True,
+                placeholder="All values",
+            ),
+            html.Button("✕", id={"type": "catf-del", "index": index}, className="btn-icon", title="Remove this filter"),
+        ],
+    )
 
 
 def _num_row(index: int, param: str | None = None, rng: list | None = None) -> html.Div:
@@ -103,24 +131,52 @@ def _num_row(index: int, param: str | None = None, rng: list | None = None) -> h
     lo, hi, val, marks, step, disabled = _range_config(param)
     if param and rng and len(rng) == 2:
         val = [max(lo, min(hi, float(rng[0]))), max(lo, min(hi, float(rng[1])))]
-    return html.Div(id={"type": "numf-row", "index": index}, className="filter-row", children=[
-        dcc.Dropdown(id={"type": "numf-param", "index": index}, options=dropdown_options(cols), value=param,
-                     placeholder="Choose a numeric parameter…"),
-        html.Div(className="range-block", children=dcc.RangeSlider(
-            id={"type": "numf-range", "index": index}, min=lo, max=hi, value=val, marks=marks, step=step,
-            disabled=disabled, tooltip=SLIDER_TOOLTIP)),
-        html.Button("✕", id={"type": "numf-del", "index": index}, className="btn-icon", title="Remove this filter"),
-    ])
+    return html.Div(
+        id={"type": "numf-row", "index": index},
+        className="filter-row",
+        children=[
+            dcc.Dropdown(
+                id={"type": "numf-param", "index": index},
+                options=dropdown_options(cols),
+                value=param,
+                placeholder="Choose a numeric parameter…",
+            ),
+            html.Div(
+                className="range-block",
+                children=dcc.RangeSlider(
+                    id={"type": "numf-range", "index": index},
+                    min=lo,
+                    max=hi,
+                    value=val,
+                    marks=marks,
+                    step=step,
+                    disabled=disabled,
+                    tooltip=SLIDER_TOOLTIP,
+                ),
+            ),
+            html.Button("✕", id={"type": "numf-del", "index": index}, className="btn-icon", title="Remove this filter"),
+        ],
+    )
 
 
 def _stat_card(index: int, param: str | None) -> html.Div:
     cols = columns_for("stats", "numeric", include_empty=True)
-    return html.Div(className="stat-card", children=[
-        control("Statistics for", dcc.Dropdown(id={"type": "stat-param", "index": index},
-                                               options=dropdown_options(cols), value=_pick(param, cols, index),
-                                               clearable=False, **PERSIST)),
-        html.Div(id={"type": "stat-out", "index": index}),
-    ])
+    return html.Div(
+        className="stat-card",
+        children=[
+            control(
+                "Statistics for",
+                dcc.Dropdown(
+                    id={"type": "stat-param", "index": index},
+                    options=dropdown_options(cols),
+                    value=_pick(param, cols, index),
+                    clearable=False,
+                    **PERSIST,
+                ),
+            ),
+            html.Div(id={"type": "stat-out", "index": index}),
+        ],
+    )
 
 
 def layout(**_):
@@ -132,46 +188,84 @@ def layout(**_):
 
     filters = card(
         [
-            html.Div(className="grid-2 filters-grid", children=[
-                html.Div([
-                    html.Label("Category filters", className="control-label"),
-                    html.Div(id="db-catf-list", children=[_cat_row(0, DEFAULT_CAT_FILTER)]),
-                    html.Button("+ Add category filter", id="db-catf-add", className="btn-light"),
-                ]),
-                html.Div([
-                    html.Label("Numeric filters", className="control-label"),
-                    html.Div(id="db-numf-list", children=[_num_row(0)]),
-                    html.Button("+ Add numeric filter", id="db-numf-add", className="btn-light"),
-                ]),
-            ]),
-            html.Div(className="filter-footer", children=[
-                html.Span(id="db-filter-count", className="muted"),
-                html.Button("Reset filters", id="db-reset", className="btn"),
-            ]),
+            html.Div(
+                className="grid-2 filters-grid",
+                children=[
+                    html.Div(
+                        [
+                            html.Label("Category filters", className="control-label"),
+                            html.Div(id="db-catf-list", children=[_cat_row(0, DEFAULT_CAT_FILTER)]),
+                            html.Button("+ Add category filter", id="db-catf-add", className="btn-light"),
+                        ]
+                    ),
+                    html.Div(
+                        [
+                            html.Label("Numeric filters", className="control-label"),
+                            html.Div(id="db-numf-list", children=[_num_row(0)]),
+                            html.Button("+ Add numeric filter", id="db-numf-add", className="btn-light"),
+                        ]
+                    ),
+                ],
+            ),
+            html.Div(
+                className="filter-footer",
+                children=[
+                    html.Span(id="db-filter-count", className="muted"),
+                    html.Button("Reset filters", id="db-reset", className="btn"),
+                ],
+            ),
         ],
         title="Filters",
         subtitle="Filters apply to the map, the statistics, the correlation plot and the table. All filters are "
-                 "combined (AND). Buildings without a value for a numeric filter parameter are excluded while "
-                 "that filter is active.",
+        "combined (AND). Buildings without a value for a numeric filter parameter are excluded while "
+        "that filter is active.",
     )
 
     map_card = card(
         [
-            html.Div(className="grid-4", children=[
-                control("Bubble size", dcc.Dropdown(id="db-size", options=dropdown_options(size_cols),
-                                                    value=_pick("sri_total_pct", size_cols), clearable=True,
-                                                    placeholder="Same size", **PERSIST)),
-                control("Bubble colour", dcc.Dropdown(id="db-color", options=dropdown_options(color_cols),
-                                                      value=_pick("sbp_level", color_cols), clearable=True,
-                                                      placeholder="Single colour", **PERSIST)),
-                control("Colour scale (numeric)", dcc.Dropdown(id="db-cscale", options=COLORSCALES, value="Viridis",
-                                                               clearable=False, **PERSIST)),
-                control("Map background", dcc.Dropdown(id="db-basemap", options=BASEMAPS, value="carto-positron",
-                                                       clearable=False, **PERSIST)),
-            ]),
+            html.Div(
+                className="grid-4",
+                children=[
+                    control(
+                        "Bubble size",
+                        dcc.Dropdown(
+                            id="db-size",
+                            options=dropdown_options(size_cols),
+                            value=_pick("sri_total_pct", size_cols),
+                            clearable=True,
+                            placeholder="Same size",
+                            **PERSIST,
+                        ),
+                    ),
+                    control(
+                        "Bubble colour",
+                        dcc.Dropdown(
+                            id="db-color",
+                            options=dropdown_options(color_cols),
+                            value=_pick("reference_year", color_cols),
+                            clearable=True,
+                            placeholder="Single colour",
+                            **PERSIST,
+                        ),
+                    ),
+                    control(
+                        "Colour scale (numeric)",
+                        dcc.Dropdown(id="db-cscale", options=COLORSCALES, value="Viridis", clearable=False, **PERSIST),
+                    ),
+                    control(
+                        "Map background",
+                        dcc.Dropdown(
+                            id="db-basemap", options=BASEMAPS, value="carto-positron", clearable=False, **PERSIST
+                        ),
+                    ),
+                ],
+            ),
             graph("db-map"),
-            html.Div(id="db-selected", className="selected-panel",
-                     children="Click a bubble (map or plot) to open the building's detail page."),
+            html.Div(
+                id="db-selected",
+                className="selected-panel",
+                children="Click a bubble (map or plot) to open the building's detail page.",
+            ),
             html.Div(className="grid-2 stat-row", children=[_stat_card(i, p) for i, p in enumerate(STAT_DEFAULTS)]),
         ],
         title="Map of smart buildings",
@@ -180,17 +274,53 @@ def layout(**_):
 
     scatter_card = card(
         [
-            html.Div(className="grid-4", children=[
-                control("X axis", dcc.Dropdown(id="db-x", options=dropdown_options(xy_cols),
-                                               value=_pick("sri_total_pct", xy_cols), clearable=False, **PERSIST)),
-                control("Y axis", dcc.Dropdown(id="db-y", options=dropdown_options(xy_cols),
-                                               value=_pick("sbp_level", xy_cols, 1), clearable=False, **PERSIST)),
-                control("Colour by", dcc.Dropdown(id="db-xy-color", options=dropdown_options(color_cols),
-                                                  value=_pick("main_reference", color_cols), clearable=True,
-                                                  placeholder="Single colour", **PERSIST)),
-                control("Options", dcc.Checklist(id="db-xy-opts", options=XY_OPTIONS,
-                    value=["trend", "labels"], inline=True, className="checklist", **PERSIST)),
-            ]),
+            html.Div(
+                className="grid-4",
+                children=[
+                    control(
+                        "X axis",
+                        dcc.Dropdown(
+                            id="db-x",
+                            options=dropdown_options(xy_cols),
+                            value=_pick("reference_year", xy_cols),
+                            clearable=False,
+                            **PERSIST,
+                        ),
+                    ),
+                    control(
+                        "Y axis",
+                        dcc.Dropdown(
+                            id="db-y",
+                            options=dropdown_options(xy_cols),
+                            value=_pick("sri_total_pct", xy_cols, 1),
+                            clearable=False,
+                            **PERSIST,
+                        ),
+                    ),
+                    control(
+                        "Colour by",
+                        dcc.Dropdown(
+                            id="db-xy-color",
+                            options=dropdown_options(color_cols),
+                            value=_pick("building_category", color_cols),
+                            clearable=True,
+                            placeholder="Single colour",
+                            **PERSIST,
+                        ),
+                    ),
+                    control(
+                        "Options",
+                        dcc.Checklist(
+                            id="db-xy-opts",
+                            options=XY_OPTIONS,
+                            value=["trend"],
+                            inline=True,
+                            className="checklist",
+                            **PERSIST,
+                        ),
+                    ),
+                ],
+            ),
             graph("db-scatter"),
             html.Div(id="db-stats", className="stats"),
         ],
@@ -200,11 +330,20 @@ def layout(**_):
 
     table_card = card(
         [
-            html.Div(className="table-toolbar", children=[
-                dcc.Input(id="db-search", type="search", placeholder="Search all columns…", debounce=False,
-                          className="search", **PERSIST),
-                html.Button("Export CSV", id="db-export", className="btn"),
-            ]),
+            html.Div(
+                className="table-toolbar",
+                children=[
+                    dcc.Input(
+                        id="db-search",
+                        type="search",
+                        placeholder="Search all columns…",
+                        debounce=False,
+                        className="search",
+                        **PERSIST,
+                    ),
+                    html.Button("Export CSV", id="db-export", className="btn"),
+                ],
+            ),
             dag.AgGrid(
                 id="db-grid",
                 rowData=[],
@@ -219,24 +358,32 @@ def layout(**_):
         subtitle="Sort and filter each column from its header, or search across all columns. Scroll sideways for all parameters. The table only shows filtered buildings",
     )
 
-    return html.Div([
-        html.Div(className="page-head", children=[
-            html.H1("Smart buildings in the World"),
-            html.P("Smartness, performance, and characteristics of real buildings."),
-        ]),
-        html.Div(className="kpi-row", children=[
-            kpi("Buildings shown", "db-kpi-n", description=KPI_HELP["n"]),
-            kpi("Total surface area", "db-kpi-area", "db-kpi-area-sub", description=KPI_HELP["area"]),
-            kpi("Countries", "db-kpi-countries", description=KPI_HELP["countries"]),
-            kpi("Municipalities", "db-kpi-mun", description=KPI_HELP["mun"]),
-        ]),
-        filters,
-        map_card,
-        scatter_card,
-        table_card,
-        dcc.Store(id="db-ids"),
-        dcc.Store(id="db-init", data=True),  # fires once when the page is opened -> restores the filter rows
-    ])
+    return html.Div(
+        [
+            html.Div(
+                className="page-head",
+                children=[
+                    html.H1("Smart buildings in the World"),
+                    html.P("Smartness, performance, and characteristics of real buildings."),
+                ],
+            ),
+            html.Div(
+                className="kpi-row",
+                children=[
+                    kpi("Buildings shown", "db-kpi-n", description=KPI_HELP["n"]),
+                    kpi("Total surface area", "db-kpi-area", "db-kpi-area-sub", description=KPI_HELP["area"]),
+                    kpi("Countries", "db-kpi-countries", description=KPI_HELP["countries"]),
+                    kpi("Municipalities", "db-kpi-mun", description=KPI_HELP["mun"]),
+                ],
+            ),
+            filters,
+            map_card,
+            scatter_card,
+            table_card,
+            dcc.Store(id="db-ids"),
+            dcc.Store(id="db-init", data=True),  # fires once when the page is opened -> restores the filter rows
+        ]
+    )
 
 
 # ----------------------------------------------------------------- callbacks: filter rows
@@ -272,8 +419,10 @@ def _edit_rows(row_ids, make_row):
 
 @callback(
     Output("db-catf-list", "children"),
-    Input("db-catf-add", "n_clicks"), Input({"type": "catf-del", "index": ALL}, "n_clicks"),
-    State({"type": "catf-row", "index": ALL}, "id"), prevent_initial_call=True,
+    Input("db-catf-add", "n_clicks"),
+    Input({"type": "catf-del", "index": ALL}, "n_clicks"),
+    State({"type": "catf-row", "index": ALL}, "id"),
+    prevent_initial_call=True,
 )
 def _edit_cat_filters(_add, _dels, row_ids):
     return _edit_rows(row_ids, _cat_row)
@@ -281,8 +430,10 @@ def _edit_cat_filters(_add, _dels, row_ids):
 
 @callback(
     Output("db-numf-list", "children"),
-    Input("db-numf-add", "n_clicks"), Input({"type": "numf-del", "index": ALL}, "n_clicks"),
-    State({"type": "numf-row", "index": ALL}, "id"), prevent_initial_call=True,
+    Input("db-numf-add", "n_clicks"),
+    Input({"type": "numf-del", "index": ALL}, "n_clicks"),
+    State({"type": "numf-row", "index": ALL}, "id"),
+    prevent_initial_call=True,
 )
 def _edit_num_filters(_add, _dels, row_ids):
     return _edit_rows(row_ids, _num_row)
@@ -299,18 +450,24 @@ def _num_del_visibility(row_ids):
 
 
 @callback(
-    Output({"type": "catf-vals", "index": MATCH}, "options"), Output({"type": "catf-vals", "index": MATCH}, "value"),
-    Input({"type": "catf-param", "index": MATCH}, "value"), prevent_initial_call=True,
+    Output({"type": "catf-vals", "index": MATCH}, "options"),
+    Output({"type": "catf-vals", "index": MATCH}, "value"),
+    Input({"type": "catf-param", "index": MATCH}, "value"),
+    prevent_initial_call=True,
 )
 def _cat_options(col):
     return _cat_values(col), []
 
 
 @callback(
-    Output({"type": "numf-range", "index": MATCH}, "min"), Output({"type": "numf-range", "index": MATCH}, "max"),
-    Output({"type": "numf-range", "index": MATCH}, "value"), Output({"type": "numf-range", "index": MATCH}, "marks"),
-    Output({"type": "numf-range", "index": MATCH}, "step"), Output({"type": "numf-range", "index": MATCH}, "disabled"),
-    Input({"type": "numf-param", "index": MATCH}, "value"), prevent_initial_call=True,
+    Output({"type": "numf-range", "index": MATCH}, "min"),
+    Output({"type": "numf-range", "index": MATCH}, "max"),
+    Output({"type": "numf-range", "index": MATCH}, "value"),
+    Output({"type": "numf-range", "index": MATCH}, "marks"),
+    Output({"type": "numf-range", "index": MATCH}, "step"),
+    Output({"type": "numf-range", "index": MATCH}, "disabled"),
+    Input({"type": "numf-param", "index": MATCH}, "value"),
+    prevent_initial_call=True,
 )
 def _cfg_range(col):
     return _range_config(col)
@@ -320,7 +477,8 @@ def _cfg_range(col):
     Output("db-catf-list", "children", allow_duplicate=True),
     Output("db-numf-list", "children", allow_duplicate=True),
     Output("db-search", "value"),
-    Input("db-reset", "n_clicks"), prevent_initial_call=True,
+    Input("db-reset", "n_clicks"),
+    prevent_initial_call=True,
 )
 def _reset(n):
     base = (n or 0) * 1000  # fresh ids so no stale component state is reused
@@ -334,7 +492,8 @@ RESTORED_BASE = 100  # index base of restored filter rows
 @callback(
     Output("db-catf-list", "children", allow_duplicate=True),
     Output("db-numf-list", "children", allow_duplicate=True),
-    Input("db-init", "data"), State("mem-db-filters", "data"),
+    Input("db-init", "data"),
+    State("mem-db-filters", "data"),
     prevent_initial_call="initial_duplicate",
 )
 def _restore_filters(_, memory):
@@ -350,9 +509,12 @@ def _restore_filters(_, memory):
 
 @callback(
     Output("mem-db-filters", "data"),
-    Input({"type": "catf-param", "index": ALL}, "value"), Input({"type": "catf-vals", "index": ALL}, "value"),
-    Input({"type": "numf-param", "index": ALL}, "value"), Input({"type": "numf-range", "index": ALL}, "value"),
-    Input("db-catf-list", "children"), Input("db-numf-list", "children"),
+    Input({"type": "catf-param", "index": ALL}, "value"),
+    Input({"type": "catf-vals", "index": ALL}, "value"),
+    Input({"type": "numf-param", "index": ALL}, "value"),
+    Input({"type": "numf-range", "index": ALL}, "value"),
+    Input("db-catf-list", "children"),
+    Input("db-numf-list", "children"),
     prevent_initial_call=True,  # never overwrite the memory with the defaults of a freshly opened page
 )
 def _save_filters(cat_params, cat_vals, num_params, num_ranges, _cat_children, _num_children):
@@ -364,9 +526,12 @@ def _save_filters(cat_params, cat_vals, num_params, num_ranges, _cat_children, _
 
 
 @callback(
-    Output("db-ids", "data"), Output("db-filter-count", "children"),
-    Input({"type": "catf-param", "index": ALL}, "value"), Input({"type": "catf-vals", "index": ALL}, "value"),
-    Input({"type": "numf-param", "index": ALL}, "value"), Input({"type": "numf-range", "index": ALL}, "value"),
+    Output("db-ids", "data"),
+    Output("db-filter-count", "children"),
+    Input({"type": "catf-param", "index": ALL}, "value"),
+    Input({"type": "catf-vals", "index": ALL}, "value"),
+    Input({"type": "numf-param", "index": ALL}, "value"),
+    Input({"type": "numf-range", "index": ALL}, "value"),
 )
 def _filter(cat_params, cat_vals, num_params, num_ranges):
     b = get_data().buildings
@@ -390,8 +555,11 @@ def _subset(ids):
 
 
 @callback(
-    Output("db-kpi-n", "children"), Output("db-kpi-area", "children"), Output("db-kpi-area-sub", "children"),
-    Output("db-kpi-countries", "children"), Output("db-kpi-mun", "children"),
+    Output("db-kpi-n", "children"),
+    Output("db-kpi-area", "children"),
+    Output("db-kpi-area-sub", "children"),
+    Output("db-kpi-countries", "children"),
+    Output("db-kpi-mun", "children"),
     Input("db-ids", "data"),
 )
 def _kpis(ids):
@@ -409,7 +577,8 @@ def _kpis(ids):
 
 @callback(
     Output({"type": "stat-out", "index": MATCH}, "children"),
-    Input({"type": "stat-param", "index": MATCH}, "value"), Input("db-ids", "data"),
+    Input({"type": "stat-param", "index": MATCH}, "value"),
+    Input("db-ids", "data"),
 )
 def _stat(col, ids):
     d = _subset(ids)
@@ -419,29 +588,45 @@ def _stat(col, ids):
     if v.empty:
         return html.Div("No values for the filtered buildings", className="muted")
     std = fmt(col, float(v.std(ddof=1))) if len(v) > 1 else "n/a"
-    return html.Div([
-        html.Div([html.Span(fmt(col, float(v.mean())), className="stat-main"),
-                  html.Span(f" ± {std}", className="stat-std")]),
-        html.Div("mean ± standard deviation", className="muted"),
-        html.Div(f"n = {len(v)} of {len(d)} buildings · min {fmt(col, float(v.min()))} · max {fmt(col, float(v.max()))}",
-                 className="muted"),
-    ], title=f"{tooltip(col)}\n\nMean and sample standard deviation over the buildings shown (filtered) that have a "
-             f"value for this parameter; n = number of these buildings, min / max = their extreme values.")
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Span(fmt(col, float(v.mean())), className="stat-main"),
+                    html.Span(f" ± {std}", className="stat-std"),
+                ]
+            ),
+            html.Div("mean ± standard deviation", className="muted"),
+            html.Div(
+                f"n = {len(v)} of {len(d)} buildings · min {fmt(col, float(v.min()))} · max {fmt(col, float(v.max()))}",
+                className="muted",
+            ),
+        ],
+        title=f"{tooltip(col)}\n\nMean and sample standard deviation over the buildings shown (filtered) that have a "
+        f"value for this parameter; n = number of these buildings, min / max = their extreme values.",
+    )
 
 
 @callback(
     Output("db-map", "figure"),
-    Input("db-ids", "data"), Input("db-size", "value"), Input("db-color", "value"),
-    Input("db-basemap", "value"), Input("db-cscale", "value"),
+    Input("db-ids", "data"),
+    Input("db-size", "value"),
+    Input("db-color", "value"),
+    Input("db-basemap", "value"),
+    Input("db-cscale", "value"),
 )
 def _map(ids, size_col, color_col, basemap, cscale):
     return map_figure(_subset(ids), size_col, color_col, basemap=basemap, colorscale=cscale)
 
 
 @callback(
-    Output("db-scatter", "figure"), Output("db-stats", "children"),
-    Input("db-ids", "data"), Input("db-x", "value"), Input("db-y", "value"),
-    Input("db-xy-color", "value"), Input("db-xy-opts", "value"),
+    Output("db-scatter", "figure"),
+    Output("db-stats", "children"),
+    Input("db-ids", "data"),
+    Input("db-x", "value"),
+    Input("db-y", "value"),
+    Input("db-xy-color", "value"),
+    Input("db-xy-opts", "value"),
 )
 def _scatter(ids, x, y, color, opts):
     opts = opts or []
@@ -469,7 +654,9 @@ def _export(_):
 
 @callback(
     Output("db-selected", "children"),
-    Input("db-map", "clickData"), Input("db-scatter", "clickData"), prevent_initial_call=True,
+    Input("db-map", "clickData"),
+    Input("db-scatter", "clickData"),
+    prevent_initial_call=True,
 )
 def _select(map_click, scatter_click):
     click = map_click if ctx.triggered_id == "db-map" else scatter_click
@@ -484,7 +671,10 @@ def _select(map_click, scatter_click):
     if row.empty:
         return no_update
     r = row.iloc[0]
-    return html.Span([
-        html.B(r["building_name"]), f" — {r.get('city', '')}  ",
-        dcc.Link("Open building details →", href=f"/building?building_id={bid}", className="link-strong"),
-    ])
+    return html.Span(
+        [
+            html.B(r["building_name"]),
+            f" — {r.get('city', '')}  ",
+            dcc.Link("Open building details →", href=f"/building?building_id={bid}", className="link-strong"),
+        ]
+    )

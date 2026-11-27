@@ -1,7 +1,9 @@
 """Plotly figure builders shared by the pages."""
+
 from __future__ import annotations
 
 import math
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -16,15 +18,34 @@ PALETTE = qualitative.Safe + qualitative.Plotly
 MIN_PX, MAX_PX = 9, 38
 
 # Domain/impact/topic display order (must match the Excel column names)
-IMPACT_COLS = ["sri_impact_energy_efficiency_pct", "sri_impact_energy_flexibility_pct", "sri_impact_comfort_pct",
-               "sri_impact_convenience_pct", "sri_impact_health_wellbeing_pct", "sri_impact_maintenance_pct",
-               "sri_impact_information_pct"]
-DOMAIN_COLS = ["sri_domain_heating_pct", "sri_domain_dhw_pct", "sri_domain_cooling_pct", "sri_domain_ventilation_pct",
-               "sri_domain_lighting_pct", "sri_domain_envelope_pct", "sri_domain_electricity_pct",
-               "sri_domain_ev_charging_pct", "sri_domain_monitoring_control_pct"]
+IMPACT_COLS = [
+    "sri_impact_energy_efficiency_pct",
+    "sri_impact_energy_flexibility_pct",
+    "sri_impact_comfort_pct",
+    "sri_impact_convenience_pct",
+    "sri_impact_health_wellbeing_pct",
+    "sri_impact_maintenance_pct",
+    "sri_impact_information_pct",
+]
+DOMAIN_COLS = [
+    "sri_domain_heating_pct",
+    "sri_domain_dhw_pct",
+    "sri_domain_cooling_pct",
+    "sri_domain_ventilation_pct",
+    "sri_domain_lighting_pct",
+    "sri_domain_envelope_pct",
+    "sri_domain_electricity_pct",
+    "sri_domain_ev_charging_pct",
+    "sri_domain_monitoring_control_pct",
+]
 KF_COLS = ["sri_kf1_building_pct", "sri_kf2_user_pct", "sri_kf3_grid_pct"]
-SBP_TOPIC_COLS = ["sbp_enabling_technology_level", "sbp_indoor_environment_level", "sbp_energy_resources_level",
-                  "sbp_safety_reliability_level", "sbp_adaptability_level"]
+SBP_TOPIC_COLS = [
+    "sbp_enabling_technology_level",
+    "sbp_indoor_environment_level",
+    "sbp_energy_resources_level",
+    "sbp_safety_reliability_level",
+    "sbp_adaptability_level",
+]
 
 
 def short_label(col: str) -> str:
@@ -35,14 +56,32 @@ def short_label(col: str) -> str:
 
 def empty_figure(message: str, height: int = 400) -> go.Figure:
     fig = go.Figure()
-    fig.add_annotation(text=message, showarrow=False, font=dict(size=15, color="#555"),
-                       xref="paper", yref="paper", x=0.5, y=0.5)
-    fig.update_layout(height=height, xaxis_visible=False, yaxis_visible=False,
-                      plot_bgcolor="white", paper_bgcolor="white", margin=dict(l=10, r=10, t=10, b=10))
+    fig.add_annotation(
+        text=message, showarrow=False, font=dict(size=15, color="#555"), xref="paper", yref="paper", x=0.5, y=0.5
+    )
+    fig.update_layout(
+        height=height,
+        xaxis_visible=False,
+        yaxis_visible=False,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=10, r=10, t=10, b=10),
+    )
     return fig
 
 
-def hover_text(df: pd.DataFrame, extra_cols: list[str]) -> list[str]:
+HOVER_LINE_CHARS = 70  # wrap long values (e.g. references) so the pop-up stays narrow
+HOVER_MAX_CHARS = 240  # longer values are shortened with "…"
+
+
+def _hover_line(text: str) -> str:
+    """One pop-up line, wrapped on several lines (Plotly does not wrap hover text by itself)."""
+    if len(text) > HOVER_MAX_CHARS:
+        text = text[: HOVER_MAX_CHARS - 1].rstrip() + "…"
+    return "<br>&nbsp;&nbsp;&nbsp;".join(textwrap.wrap(text, HOVER_LINE_CHARS)) or text
+
+
+def hover_text(df: pd.DataFrame, extra_cols: list[str | None]) -> list[str]:
     cols = []
     for c in columns_for("hover") + [c for c in extra_cols if c]:
         if c not in cols and c not in ("building_name",):
@@ -55,7 +94,7 @@ def hover_text(df: pd.DataFrame, extra_cols: list[str]) -> list[str]:
             txt = fmt(c, v)
             if c == "sbp_level" and txt != "n/a":
                 txt = f"{txt} ({sbp_level_name(v)})"
-            lines.append(f"{label(c, with_unit=False)}: {txt}")
+            lines.append(_hover_line(f"{label(c, with_unit=False)}: {txt}"))
         texts.append("<br>".join(lines))
     return texts
 
@@ -77,52 +116,92 @@ def _auto_view(df: pd.DataFrame) -> tuple[dict, float]:
     return center, zoom
 
 
-def map_figure(df: pd.DataFrame, size_col: str | None, color_col: str | None,
-               basemap: str = "carto-positron", colorscale: str = "Viridis", height: int = 620) -> go.Figure:
+def map_figure(
+    df: pd.DataFrame,
+    size_col: str | None,
+    color_col: str | None,
+    basemap: str = "carto-positron",
+    colorscale: str = "Viridis",
+    height: int = 620,
+) -> go.Figure:
     df = df.dropna(subset=["latitude", "longitude"])
     if df.empty:
         return empty_figure("No buildings match the current filters.", height)
     sizes = _scaled_sizes(df[size_col]) if size_col else np.full(len(df), 16.0)
-    texts = hover_text(df, [size_col, color_col])
-    texts = np.array(texts, dtype=object)
+    texts = np.array(hover_text(df, [size_col, color_col]), dtype=object)
     fig = go.Figure()
 
     def add(mask, marker, name, showlegend=True):
-        fig.add_trace(go.Scattermap(
-            lat=df["latitude"].to_numpy()[mask], lon=df["longitude"].to_numpy()[mask],
-            customdata=df["building_id"].to_numpy()[mask], hovertext=texts[mask],
-            hovertemplate="%{hovertext}<extra></extra>", mode="markers",
-            marker=marker, name=name, showlegend=showlegend))
+        fig.add_trace(
+            go.Scattermap(
+                lat=df["latitude"].to_numpy()[mask],
+                lon=df["longitude"].to_numpy()[mask],
+                customdata=df["building_id"].to_numpy()[mask],
+                hovertext=texts[mask],
+                hovertemplate="%{hovertext}<extra></extra>",
+                mode="markers",
+                marker=marker,
+                name=name,
+                showlegend=showlegend,
+            )
+        )
 
     if color_col and is_numeric(color_col):
         vals = df[color_col].astype(float).to_numpy()
         has = ~np.isnan(vals)
         if has.any():
-            add(has, dict(size=sizes[has], color=vals[has], colorscale=colorscale, opacity=0.85,
-                          colorbar=dict(title=dict(text=f"<b>{label(color_col)}</b>", side="right"),
-                                        tickfont=dict(weight="bold"), thickness=14)),
-                label(color_col, with_unit=False), showlegend=False)
+            add(
+                has,
+                dict(
+                    size=sizes[has],
+                    color=vals[has],
+                    colorscale=colorscale,
+                    opacity=0.85,
+                    colorbar=dict(
+                        title=dict(text=f"<b>{label(color_col)}</b>", side="right"),
+                        tickfont=dict(weight="bold"),
+                        thickness=14,
+                    ),
+                ),
+                label(color_col, with_unit=False),
+                showlegend=False,
+            )
         if (~has).any():
             add(~has, dict(size=sizes[~has], color=NA_GREY, opacity=0.8), "n/a")
     else:
-        groups = (df[color_col].fillna("n/a").astype(str) if color_col
-                  else pd.Series(["Buildings"] * len(df), index=df.index)).to_numpy()
+        groups = (
+            df[color_col].fillna("n/a").astype(str) if color_col else pd.Series(["Buildings"] * len(df), index=df.index)
+        ).to_numpy()
         for i, g in enumerate(sort_categories(color_col, set(groups))):
             m = groups == g
             add(m, dict(size=sizes[m], color=NA_GREY if g == "n/a" else PALETTE[i % len(PALETTE)], opacity=0.85), g)
     center, zoom = _auto_view(df)
     fig.update_layout(
         map=dict(style=basemap, center=center, zoom=zoom),
-        height=height, margin=dict(l=0, r=0, t=0, b=0),
-        legend=dict(title=dict(text=label(color_col, with_unit=False) if color_col else ""), bgcolor="rgba(255,255,255,0.85)",
-                    x=0.01, y=0.99, xanchor="left", yanchor="top"),
+        height=height,
+        margin=dict(l=0, r=0, t=0, b=0),
+        legend=dict(
+            title=dict(text=label(color_col, with_unit=False) if color_col else ""),
+            bgcolor="rgba(255,255,255,0.85)",
+            x=0.01,
+            y=0.99,
+            xanchor="left",
+            yanchor="top",
+        ),
         uirevision=f"{size_col}-{color_col}",  # keep zoom when only filters change
     )
     return fig
 
 
-def scatter_figure(df: pd.DataFrame, x: str, y: str, color: str | None,
-                   trendline: bool = True, show_labels: bool = True, height: int = 560) -> tuple[go.Figure, str]:
+def scatter_figure(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    color: str | None,
+    trendline: bool = True,
+    show_labels: bool = True,
+    height: int = 560,
+) -> tuple[go.Figure, str]:
     d = df.dropna(subset=[x, y])
     if d.empty:
         return empty_figure("No buildings have values for both selected parameters."), ""
@@ -132,21 +211,43 @@ def scatter_figure(df: pd.DataFrame, x: str, y: str, color: str | None,
     marker_base = dict(size=13, line=dict(width=1, color="white"))
     if color and is_numeric(color):
         vals = d[color]
-        fig.add_trace(go.Scatter(
-            x=d[x], y=d[y], mode=mode, text=d["short_name"], textposition="top center",
-            customdata=d["building_id"], hovertext=texts, hovertemplate="%{hovertext}<extra></extra>",
-            marker=dict(**marker_base, color=vals, colorscale="Viridis",
-                        colorbar=dict(title=dict(text=label(color), side="right"), thickness=14)),
-            showlegend=False))
+        fig.add_trace(
+            go.Scatter(
+                x=d[x],
+                y=d[y],
+                mode=mode,
+                text=d["short_name"],
+                textposition="top center",
+                customdata=d["building_id"],
+                hovertext=texts,
+                hovertemplate="%{hovertext}<extra></extra>",
+                marker=dict(
+                    **marker_base,
+                    color=vals,
+                    colorscale="Viridis",
+                    colorbar=dict(title=dict(text=label(color), side="right"), thickness=14),
+                ),
+                showlegend=False,
+            )
+        )
     else:
         groups = d[color].fillna("n/a").astype(str) if color else pd.Series(["Buildings"] * len(d), index=d.index)
         for i, g in enumerate(sort_categories(color, groups.unique())):
             m = (groups == g).to_numpy()
-            fig.add_trace(go.Scatter(
-                x=d[x][m], y=d[y][m], mode=mode, text=d["short_name"][m], textposition="top center",
-                customdata=d["building_id"][m], hovertext=np.array(texts)[m],
-                hovertemplate="%{hovertext}<extra></extra>", name=g,
-                marker=dict(**marker_base, color=PALETTE[i % len(PALETTE)])))
+            fig.add_trace(
+                go.Scatter(
+                    x=d[x][m],
+                    y=d[y][m],
+                    mode=mode,
+                    text=d["short_name"][m],
+                    textposition="top center",
+                    customdata=d["building_id"][m],
+                    hovertext=np.array(texts)[m],
+                    hovertemplate="%{hovertext}<extra></extra>",
+                    name=g,
+                    marker=dict(**marker_base, color=PALETTE[i % len(PALETTE)]),
+                )
+            )
 
     stats = f"n = {len(d)}"
     if len(d) >= 3 and d[x].nunique() > 1 and d[y].nunique() > 1:
@@ -157,10 +258,21 @@ def scatter_figure(df: pd.DataFrame, x: str, y: str, color: str | None,
         stats += f"  ·  Pearson r = {r:.2f}  ·  R² = {r * r:.2f}  ·  fit: y = {slope:.3g}·x {sign} {abs(intercept):.3g}"
         if trendline:
             xs = np.linspace(xv.min(), xv.max(), 50)
-            fig.add_trace(go.Scatter(x=xs, y=slope * xs + intercept, mode="lines", name=f"Linear fit (R² = {r*r:.2f})",
-                                     line=dict(color="#444", dash="dash", width=1.5), hoverinfo="skip"))
+            fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=slope * xs + intercept,
+                    mode="lines",
+                    name=f"Linear fit (R² = {r * r:.2f})",
+                    line=dict(color="#444", dash="dash", width=1.5),
+                    hoverinfo="skip",
+                )
+            )
     fig.update_layout(
-        height=height, plot_bgcolor="white", paper_bgcolor="white", margin=dict(l=60, r=20, t=20, b=60),
+        height=height,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=60, r=20, t=20, b=60),
         xaxis=dict(title=dict(text=label(x)), gridcolor="#e5e8ee", zerolinecolor="#c8ccd4"),
         yaxis=dict(title=dict(text=label(y)), gridcolor="#e5e8ee", zerolinecolor="#c8ccd4"),
         legend=dict(title=dict(text=label(color, with_unit=False) if color else ""), orientation="h", y=-0.18),
@@ -177,13 +289,27 @@ def bar_scores(row: pd.Series, cols: list[str], title: str, unit_range=(-50, 100
     names = [short_label(c) for c in cols]
     colors = [NA_GREY if pd.isna(v) else ("#c0504d" if v < 0 else ACCENT) for v in vals]
     text = ["not assessed" if pd.isna(v) else f"{v:.1f}" for v in vals]
-    fig = go.Figure(go.Bar(x=[0 if pd.isna(v) else v for v in vals], y=names, orientation="h",
-                           marker_color=colors, text=text, textposition="outside", cliponaxis=False,
-                           hovertemplate="%{y}: %{text}<extra></extra>"))
-    fig.update_layout(title=dict(text=title, x=0, font=dict(size=15)), height=height,
-                      xaxis=dict(range=list(unit_range), gridcolor="#e5e8ee", zerolinecolor="#888"),
-                      yaxis=dict(autorange="reversed"), plot_bgcolor="white", paper_bgcolor="white",
-                      margin=dict(l=10, r=40, t=40, b=30))
+    fig = go.Figure(
+        go.Bar(
+            x=[0 if pd.isna(v) else v for v in vals],
+            y=names,
+            orientation="h",
+            marker_color=colors,
+            text=text,
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="%{y}: %{text}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        title=dict(text=title, x=0, font=dict(size=15)),
+        height=height,
+        xaxis=dict(range=list(unit_range), gridcolor="#e5e8ee", zerolinecolor="#888"),
+        yaxis=dict(autorange="reversed"),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=10, r=40, t=40, b=30),
+    )
     return fig
 
 
@@ -191,13 +317,28 @@ def heatmap_detailed(detail: pd.DataFrame, height=420) -> go.Figure:
     if detail.empty:
         return empty_figure("No detailed domain × impact matrix available for this building", height)
     piv = detail.pivot_table(index="domain", columns="impact", values="score_pct", aggfunc="first", sort=False)
-    fig = go.Figure(go.Heatmap(z=piv.values, x=piv.columns, y=piv.index, colorscale="RdYlGn", zmin=-50, zmax=100,
-                               text=np.vectorize(lambda v: "" if pd.isna(v) else f"{v:.0f}")(piv.values),
-                               texttemplate="%{text}", hovertemplate="%{y} × %{x}: %{z:.1f} %<extra></extra>",
-                               colorbar=dict(title=dict(text="%"), thickness=12)))
-    fig.update_layout(title=dict(text="Detailed SRI scores: technical domain × impact criterion [%]", x=0, font=dict(size=15)),
-                      height=height, yaxis=dict(autorange="reversed"), xaxis=dict(tickangle=-25),
-                      margin=dict(l=10, r=10, t=40, b=80), paper_bgcolor="white")
+    fig = go.Figure(
+        go.Heatmap(
+            z=piv.values,
+            x=piv.columns,
+            y=piv.index,
+            colorscale="RdYlGn",
+            zmin=-50,
+            zmax=100,
+            text=np.vectorize(lambda v: "" if pd.isna(v) else f"{v:.0f}")(piv.values),
+            texttemplate="%{text}",
+            hovertemplate="%{y} × %{x}: %{z:.1f} %<extra></extra>",
+            colorbar=dict(title=dict(text="%"), thickness=12),
+        )
+    )
+    fig.update_layout(
+        title=dict(text="Detailed SRI scores: technical domain × impact criterion [%]", x=0, font=dict(size=15)),
+        height=height,
+        yaxis=dict(autorange="reversed"),
+        xaxis=dict(tickangle=-25),
+        margin=dict(l=10, r=10, t=40, b=80),
+        paper_bgcolor="white",
+    )
     return fig
 
 
@@ -212,14 +353,27 @@ def radar(df: pd.DataFrame, cols: list[str], title: str, rng=(0, 100), height=43
         if all(pd.isna(v) for v in vals):
             continue
         vals = [None if pd.isna(v) else v for v in vals]
-        fig.add_trace(go.Scatterpolar(r=vals + vals[:1], theta=theta + theta[:1], name=r["short_name"],
-                                      fill="toself", opacity=0.55, line=dict(color=PALETTE[i % len(PALETTE)]),
-                                      connectgaps=True))
+        fig.add_trace(
+            go.Scatterpolar(
+                r=vals + vals[:1],
+                theta=theta + theta[:1],
+                name=r["short_name"],
+                fill="toself",
+                opacity=0.55,
+                line=dict(color=PALETTE[i % len(PALETTE)]),
+                connectgaps=True,
+            )
+        )
     if not fig.data:
         return empty_figure("No data for the selected buildings", height)
-    fig.update_layout(title=dict(text=title, x=0, font=dict(size=15)), height=height,
-                      polar=dict(radialaxis=dict(range=list(rng), gridcolor="#dde"), angularaxis=dict(gridcolor="#dde")),
-                      legend=dict(orientation="h", y=-0.12), margin=dict(l=40, r=40, t=50, b=40), paper_bgcolor="white")
+    fig.update_layout(
+        title=dict(text=title, x=0, font=dict(size=15)),
+        height=height,
+        polar=dict(radialaxis=dict(range=list(rng), gridcolor="#dde"), angularaxis=dict(gridcolor="#dde")),
+        legend=dict(orientation="h", y=-0.12),
+        margin=dict(l=40, r=40, t=50, b=40),
+        paper_bgcolor="white",
+    )
     return fig
 
 
@@ -230,11 +384,20 @@ def grouped_bars(df: pd.DataFrame, cols: list[str], title: str, rng=None, height
     names = [short_label(c) for c in cols]
     fig = go.Figure()
     for i, (_, r) in enumerate(df.iterrows()):
-        fig.add_trace(go.Bar(x=names, y=[r[c] for c in cols], name=r["short_name"],
-                             marker_color=PALETTE[i % len(PALETTE)]))
-    fig.update_layout(title=dict(text=title, x=0, font=dict(size=15)), barmode="group", height=height,
-                      plot_bgcolor="white", paper_bgcolor="white", yaxis=dict(gridcolor="#e5e8ee", range=rng),
-                      xaxis=dict(tickangle=-25), legend=dict(orientation="h", y=1.12), margin=dict(l=50, r=10, t=70, b=90))
+        fig.add_trace(
+            go.Bar(x=names, y=[r[c] for c in cols], name=r["short_name"], marker_color=PALETTE[i % len(PALETTE)])
+        )
+    fig.update_layout(
+        title=dict(text=title, x=0, font=dict(size=15)),
+        barmode="group",
+        height=height,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        yaxis=dict(gridcolor="#e5e8ee", range=rng),
+        xaxis=dict(tickangle=-25),
+        legend=dict(orientation="h", y=1.12),
+        margin=dict(l=50, r=10, t=70, b=90),
+    )
     return fig
 
 
@@ -242,9 +405,19 @@ def location_map(row: pd.Series, height=None) -> go.Figure:
     """Single-building map. height=None lets the map fill its container (see .map-fill in style.css)."""
     if pd.isna(row.get("latitude")) or pd.isna(row.get("longitude")):
         return empty_figure("No coordinates", height)
-    fig = go.Figure(go.Scattermap(lat=[row["latitude"]], lon=[row["longitude"]], mode="markers",
-                                  marker=dict(size=16, color=ACCENT), hovertext=[row["building_name"]],
-                                  hovertemplate="%{hovertext}<extra></extra>"))
-    fig.update_layout(map=dict(style="carto-positron", center={"lat": row["latitude"], "lon": row["longitude"]}, zoom=11),
-                      height=height, margin=dict(l=0, r=0, t=0, b=0))
+    fig = go.Figure(
+        go.Scattermap(
+            lat=[row["latitude"]],
+            lon=[row["longitude"]],
+            mode="markers",
+            marker=dict(size=16, color=ACCENT),
+            hovertext=[row["building_name"]],
+            hovertemplate="%{hovertext}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        map=dict(style="carto-positron", center={"lat": row["latitude"], "lon": row["longitude"]}, zoom=11),
+        height=height,
+        margin=dict(l=0, r=0, t=0, b=0),
+    )
     return fig

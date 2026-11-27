@@ -88,7 +88,8 @@ Cloud Run → Deploy container → **Continuously deploy from a repository** →
    `logging: CLOUD_LOGGING_ONLY` under `options:` (required when a user-managed account runs the build). Save, Run.
 
 Every merge into `main` (pull request from `dev`) then rebuilds and redeploys automatically (Cloud Build → History).
-`requirements.txt` pins the versions tested locally; update them together after testing upgrades.
+`uv.lock` pins the exact versions of all dependencies (the Docker image is built with `uv sync --locked`). Upgrade with
+`uv lock --upgrade`, run the tests, then commit `pyproject.toml` and `uv.lock` together.
 
 Alternative without GitHub: `gcloud run deploy SERVICE --source . --region REGION ...` from the project folder with
 the Google Cloud CLI (uploads the local folder minus `.gcloudignore`), with the same volume, variables and secret
@@ -99,16 +100,16 @@ options (`--execution-environment gen2 --add-volume ... --add-volume-mount ... -
 On your PC, once (requires the Google Cloud CLI for the login):
 
 ```bash
-pip install -r tools/requirements-tools.txt
+uv sync                                   # installs the 'tools' group (google-cloud-storage)
 gcloud auth application-default login
 ```
 
 Then whenever you want:
 
 ```bash
-python tools/fetch_submissions.py --bucket BUCKET_NAME          # download, verify, delete
-python tools/fetch_submissions.py --bucket BUCKET_NAME --keep   # download only
-python tools/fetch_submissions.py --local-dir submissions       # when testing the app locally
+uv run python tools/fetch_submissions.py --bucket BUCKET_NAME          # download, verify, delete
+uv run python tools/fetch_submissions.py --bucket BUCKET_NAME --keep   # download only
+uv run python tools/fetch_submissions.py --local-dir submissions       # when testing the app locally
 ```
 
 Without the CLI, the files can also be downloaded by hand in the Console (Cloud Storage → bucket → select → Download)

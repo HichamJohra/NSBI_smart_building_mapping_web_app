@@ -1,4 +1,4 @@
-"""Project graph explorer: interactive HTML overview of the NSBI Dash web app code.
+r"""Project graph explorer: interactive HTML overview of the NSBI Dash web app code.
 
 Static analysis only (Python `ast`): the app is NOT imported or run.
 Extracts
@@ -22,10 +22,12 @@ Options:
     --out FILE          output HTML (default: NSBI_project_explorer.html next to this script)
     --include-docs      show the docs/ tooling code in the graphs by default
 """
+
 from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import datetime as dt
 import json
 import sys
@@ -75,7 +77,12 @@ def scan_tree(root: Path) -> tuple[dict, list[dict]]:
     files = []
 
     def walk(p: Path) -> dict:
-        node = {"name": p.name, "path": p.relative_to(root).as_posix() if p != root else "", "type": "dir", "children": []}
+        node = {
+            "name": p.name,
+            "path": p.relative_to(root).as_posix() if p != root else "",
+            "type": "dir",
+            "children": [],
+        }
         for c in sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower())):
             if c.is_dir():
                 if c.name in IGNORE_DIRS:
@@ -85,10 +92,8 @@ def scan_tree(root: Path) -> tuple[dict, list[dict]]:
                 rel = c.relative_to(root).as_posix()
                 info = {"name": c.name, "path": rel, "type": "file", "ext": c.suffix.lower(), "size": c.stat().st_size}
                 if c.suffix.lower() in TEXT_EXT:
-                    try:
+                    with contextlib.suppress(UnicodeDecodeError):
                         info["lines"] = len(c.read_text(encoding="utf-8").splitlines())
-                    except UnicodeDecodeError:
-                        pass
                 node["children"].append(info)
                 files.append(info)
         return node
@@ -126,7 +131,11 @@ class FileAnalyser:
             if isinstance(n, ast.Import):
                 for a in n.names:
                     proj = self.is_project(a.name)
-                    self.aliases[a.asname or a.name.split(".")[0]] = (a.name if a.asname else a.name.split(".")[0], None, proj)
+                    self.aliases[a.asname or a.name.split(".")[0]] = (
+                        a.name if a.asname else a.name.split(".")[0],
+                        None,
+                        proj,
+                    )
                     self.imports.append({"module": a.name, "names": [], "project": proj, "line": n.lineno})
             elif isinstance(n, ast.ImportFrom) and n.module:
                 proj = self.is_project(n.module)
@@ -149,10 +158,19 @@ class FileAnalyser:
                 self._defs(n.body, prefix=q + ".", parent=q)
             elif isinstance(n, ast.ClassDef):
                 q = f"{prefix}{n.name}"
-                self.functions[q] = {"name": n.name, "qualname": q, "kind": "class", "line": n.lineno,
-                                     "end": n.end_lineno, "doc": first_line(ast.get_docstring(n)),
-                                     "signature": f"class {n.name}", "decorators": [unparse(d) for d in n.decorator_list],
-                                     "parent": parent, "callback": None, "_node": n}
+                self.functions[q] = {
+                    "name": n.name,
+                    "qualname": q,
+                    "kind": "class",
+                    "line": n.lineno,
+                    "end": n.end_lineno,
+                    "doc": first_line(ast.get_docstring(n)),
+                    "signature": f"class {n.name}",
+                    "decorators": [unparse(d) for d in n.decorator_list],
+                    "parent": parent,
+                    "callback": None,
+                    "_node": n,
+                }
             elif not prefix and isinstance(n, (ast.Assign, ast.AnnAssign)):
                 targets = n.targets if isinstance(n, ast.Assign) else [n.target]
                 for t in targets:
@@ -162,23 +180,49 @@ class FileAnalyser:
     def _function_info(self, n, q, parent):
         args = unparse(n.args)
         ret = f" -> {unparse(n.returns)}" if n.returns else ""
-        info = {"name": n.name, "qualname": q, "kind": "function", "line": n.lineno, "end": n.end_lineno,
-                "doc": first_line(ast.get_docstring(n)), "signature": f"def {n.name}({args}){ret}",
-                "params": [a.arg for a in n.args.args + n.args.kwonlyargs],
-                "decorators": [unparse(d) for d in n.decorator_list], "parent": parent, "callback": None, "_node": n}
+        info = {
+            "name": n.name,
+            "qualname": q,
+            "kind": "function",
+            "line": n.lineno,
+            "end": n.end_lineno,
+            "doc": first_line(ast.get_docstring(n)),
+            "signature": f"def {n.name}({args}){ret}",
+            "params": [a.arg for a in n.args.args + n.args.kwonlyargs],
+            "decorators": [unparse(d) for d in n.decorator_list],
+            "parent": parent,
+            "callback": None,
+            "_node": n,
+        }
         for d in n.decorator_list:
             if isinstance(d, ast.Call) and unparse(d.func) in CALLBACK_DECORATORS:
                 deps, opts = [], {}
                 for a in d.args:
                     if isinstance(a, ast.Call) and unparse(a.func).split(".")[-1] in DEP_KINDS:
                         cid = (id_name(a.args[0]) or unparse(a.args[0])) if a.args else "?"
-                        wildcard = next((unparse(v) for k, v in zip(a.args[0].keys, a.args[0].values)
-                                         if isinstance(k, ast.Constant) and k.value == "index"), None) \
-                            if a.args and isinstance(a.args[0], ast.Dict) else None
+                        wildcard = (
+                            next(
+                                (
+                                    unparse(v)
+                                    for k, v in zip(a.args[0].keys, a.args[0].values)
+                                    if isinstance(k, ast.Constant) and k.value == "index"
+                                ),
+                                None,
+                            )
+                            if a.args and isinstance(a.args[0], ast.Dict)
+                            else None
+                        )
                         prop = a.args[1].value if len(a.args) > 1 and isinstance(a.args[1], ast.Constant) else "?"
                         dup = any(k.arg == "allow_duplicate" for k in a.keywords)
-                        deps.append({"kind": DEP_KINDS[unparse(a.func).split(".")[-1]], "id": cid, "prop": prop,
-                                     "allow_duplicate": dup, "wildcard": wildcard})
+                        deps.append(
+                            {
+                                "kind": DEP_KINDS[unparse(a.func).split(".")[-1]],
+                                "id": cid,
+                                "prop": prop,
+                                "allow_duplicate": dup,
+                                "wildcard": wildcard,
+                            }
+                        )
                 for k in d.keywords:
                     opts[k.arg] = unparse(k.value)
                 info["kind"] = "callback"
@@ -214,7 +258,11 @@ class FileAnalyser:
                 mod, obj, proj = self.aliases[cur.id]
                 full = ".".join([mod] + ([obj] if obj else []) + chain[::-1])
                 if proj:
-                    return {"type": "project", "module": mod if not obj else mod, "qualname": chain[0] if not obj else obj}
+                    return {
+                        "type": "project",
+                        "module": mod,
+                        "qualname": obj or chain[0],
+                    }
                 return {"type": "external", "lib": mod.split(".")[0], "name": full}
         return None
 
@@ -243,13 +291,18 @@ class FileAnalyser:
         return found
 
     def _module_level(self):
-        body = [b for b in self.tree.body if not isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
-                                                                  ast.Import, ast.ImportFrom))]
+        body = [
+            b
+            for b in self.tree.body
+            if not isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Import, ast.ImportFrom))
+        ]
         self.module_calls = self.calls_in(ast.Module(body=body, type_ignores=[]), None)
         for n in ast.walk(self.tree):
             if isinstance(n, ast.Call) and unparse(n.func) in ("dash.register_page", "register_page"):
-                self.page = {k.arg: (k.value.value if isinstance(k.value, ast.Constant) else unparse(k.value))
-                             for k in n.keywords}
+                self.page = {
+                    k.arg: (k.value.value if isinstance(k.value, ast.Constant) else unparse(k.value))
+                    for k in n.keywords
+                }
 
 
 def find_component_defs(an: FileAnalyser, known_ids: set[str], helpers: dict) -> list[dict]:
@@ -259,9 +312,10 @@ def find_component_defs(an: FileAnalyser, known_ids: set[str], helpers: dict) ->
     def enclosing(lineno):
         best = None
         for q, f in an.functions.items():
-            if f["line"] <= lineno <= (f["end"] or f["line"]):
-                if best is None or f["line"] >= an.functions[best]["line"]:
-                    best = q
+            if f["line"] <= lineno <= (f["end"] or f["line"]) and (
+                best is None or f["line"] >= an.functions[best]["line"]
+            ):
+                best = q
         return best
 
     for n in ast.walk(an.tree):
@@ -277,8 +331,14 @@ def find_component_defs(an: FileAnalyser, known_ids: set[str], helpers: dict) ->
             if key in helpers:
                 for pidx, ctype in helpers[key]:
                     if pidx < len(n.args) and isinstance(n.args[pidx], ast.Constant):
-                        defs.append({"id": n.args[pidx].value, "type": f"{ctype} (via {target['qualname']}())",
-                                     "line": n.lineno, "func": enclosing(n.lineno)})
+                        defs.append(
+                            {
+                                "id": n.args[pidx].value,
+                                "type": f"{ctype} (via {target['qualname']}())",
+                                "line": n.lineno,
+                                "func": enclosing(n.lineno),
+                            }
+                        )
     return defs
 
 
@@ -299,12 +359,19 @@ def find_helpers(an: FileAnalyser) -> dict:
 def excel_sheets(path: Path) -> list[dict]:
     try:
         import openpyxl
+
         wb = openpyxl.load_workbook(path, read_only=True)
         res = []
         for ws in wb.worksheets:
             header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
-            res.append({"name": ws.title, "rows": max(ws.max_row - 1, 0), "cols": ws.max_column,
-                        "header": [h for h in header if h is not None][:80]})
+            res.append(
+                {
+                    "name": ws.title,
+                    "rows": max(ws.max_row - 1, 0),
+                    "cols": ws.max_column,
+                    "header": [h for h in header if h is not None][:80],
+                }
+            )
         return res
     except Exception as e:  # openpyxl missing or unreadable
         return [{"name": f"(could not read: {e})", "rows": 0, "cols": 0, "header": []}]
@@ -342,40 +409,64 @@ def analyse(root: Path, include_docs: bool = False) -> dict:
                     continue
                 if c["qualname"] not in analysers[tgt_mod].functions:
                     continue
-                calls.append({"source": src_id, "target": fid(tgt_mod, c["qualname"]), "line": c["line"], "kind": "call"})
+                calls.append(
+                    {"source": src_id, "target": fid(tgt_mod, c["qualname"]), "line": c["line"], "kind": "call"}
+                )
             else:
                 lib = c["lib"]
                 ext_libs.setdefault(lib, {"name": lib, "used_by": set(), "calls": set()})
                 ext_libs[lib]["used_by"].add(file_rel)
                 ext_libs[lib]["calls"].add(c["name"])
-                calls.append({"source": src_id, "target": f"ext:{lib}", "line": c["line"], "kind": "ext", "name": c["name"]})
+                calls.append(
+                    {"source": src_id, "target": f"ext:{lib}", "line": c["line"], "kind": "ext", "name": c["name"]}
+                )
 
-    data_files = [f for f in files if f["ext"] in (".xlsx", ".xls", ".csv", ".parquet", ".json") and f["path"].startswith("data/")]
+    data_files = [
+        f for f in files if f["ext"] in (".xlsx", ".xls", ".csv", ".parquet", ".json") and f["path"].startswith("data/")
+    ]
     data_reads = []
     for m, a in analysers.items():
         for q, f in a.functions.items():
             node_id = fid(m, q)
-            functions.append({k: v for k, v in f.items() if k != "_node"}
-                             | {"id": node_id, "file": a.rel, "module": m, "tooling": is_tooling(a.rel)})
+            functions.append(
+                {k: v for k, v in f.items() if k != "_node"}
+                | {"id": node_id, "file": a.rel, "module": m, "tooling": is_tooling(a.rel)}
+            )
             found = a.calls_in(f["_node"], q)
             add_calls(node_id, found, a.rel)
-            if any(c["type"] == "external" and c["name"].split(".")[-1] in ("read_excel", "read_csv", "read_parquet")
-                   for c in found):
+            if any(
+                c["type"] == "external" and c["name"].split(".")[-1] in ("read_excel", "read_csv", "read_parquet")
+                for c in found
+            ):
                 for df in data_files:
                     data_reads.append({"source": f"data:{df['path']}", "target": node_id, "kind": "read"})
             if f["callback"]:
                 callbacks.append({"id": node_id, "file": a.rel, "name": q, **f["callback"]})
         if a.module_calls:
             node_id = fid(m, "<module>")
-            functions.append({"id": node_id, "file": a.rel, "module": m, "tooling": is_tooling(a.rel),
-                              "name": "<module level>", "qualname": "<module>",
-                              "kind": "module", "line": 1, "end": None, "doc": "Code executed when the file is imported",
-                              "signature": "", "decorators": [], "parent": None, "callback": None})
+            functions.append(
+                {
+                    "id": node_id,
+                    "file": a.rel,
+                    "module": m,
+                    "tooling": is_tooling(a.rel),
+                    "name": "<module level>",
+                    "qualname": "<module>",
+                    "kind": "module",
+                    "line": 1,
+                    "end": None,
+                    "doc": "Code executed when the file is imported",
+                    "signature": "",
+                    "decorators": [],
+                    "parent": None,
+                    "callback": None,
+                }
+            )
             add_calls(node_id, a.module_calls, a.rel)
 
     # module import edges
     imports = []
-    for m, a in analysers.items():
+    for a in analysers.values():
         for imp in a.imports:
             if imp["project"]:
                 tmod = imp["module"]
@@ -387,12 +478,21 @@ def analyse(root: Path, include_docs: bool = False) -> dict:
                     elif tmod in mod2file:
                         targets.append((tmod, [nm] if nm else []))
                 for t, names in targets:
-                    imports.append({"source": f"file:{a.rel}", "target": f"file:{mod2file[t]}", "names": names, "line": imp["line"]})
+                    imports.append(
+                        {
+                            "source": f"file:{a.rel}",
+                            "target": f"file:{mod2file[t]}",
+                            "names": names,
+                            "line": imp["line"],
+                        }
+                    )
             else:
                 lib = imp["module"].split(".")[0]
                 ext_libs.setdefault(lib, {"name": lib, "used_by": set(), "calls": set()})
                 ext_libs[lib]["used_by"].add(a.rel)
-                imports.append({"source": f"file:{a.rel}", "target": f"ext:{lib}", "names": imp["names"], "line": imp["line"]})
+                imports.append(
+                    {"source": f"file:{a.rel}", "target": f"ext:{lib}", "names": imp["names"], "line": imp["line"]}
+                )
     # merge duplicate import edges
     merged = {}
     for e in imports:
@@ -409,12 +509,24 @@ def analyse(root: Path, include_docs: bool = False) -> dict:
     if app_file:
         for a in analysers.values():
             if a.page:
-                framework.append({"source": f"file:{app_file}", "target": f"file:{a.rel}", "kind": "pages",
-                                  "label": "use_pages: page registered"})
+                framework.append(
+                    {
+                        "source": f"file:{app_file}",
+                        "target": f"file:{a.rel}",
+                        "kind": "pages",
+                        "label": "use_pages: page registered",
+                    }
+                )
         for f in files:
             if f["path"].startswith("assets/"):
-                framework.append({"source": f"file:{app_file}", "target": f"file:{f['path']}", "kind": "assets",
-                                  "label": "auto-loaded from assets/"})
+                framework.append(
+                    {
+                        "source": f"file:{app_file}",
+                        "target": f"file:{f['path']}",
+                        "kind": "assets",
+                        "label": "auto-loaded from assets/",
+                    }
+                )
 
     # Dash components
     known_ids = {d["id"] for cb in callbacks for d in cb["deps"]}
@@ -434,15 +546,27 @@ def analyse(root: Path, include_docs: bool = False) -> dict:
     data_nodes = []
     for df in data_files:
         p = root / df["path"]
-        data_nodes.append({"id": f"data:{df['path']}", "path": df["path"], "size": df["size"],
-                           "sheets": excel_sheets(p) if df["ext"] in (".xlsx", ".xls") else []})
+        data_nodes.append(
+            {
+                "id": f"data:{df['path']}",
+                "path": df["path"],
+                "size": df["size"],
+                "sheets": excel_sheets(p) if df["ext"] in (".xlsx", ".xls") else [],
+            }
+        )
     writers = []  # kept for the template (scripts writing data files); none at the moment
 
     file_info = {}
     for m, a in analysers.items():
-        file_info[a.rel] = {"module": m, "doc": first_line(ast.get_docstring(a.tree)), "page": a.page,
-                            "imports": a.imports, "constants": a.constants,
-                            "functions": [q for q in a.functions], "tooling": is_tooling(a.rel)}
+        file_info[a.rel] = {
+            "module": m,
+            "doc": first_line(ast.get_docstring(a.tree)),
+            "page": a.page,
+            "imports": a.imports,
+            "constants": a.constants,
+            "functions": list(a.functions),
+            "tooling": is_tooling(a.rel),
+        }
 
     return {
         "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -458,8 +582,10 @@ def analyse(root: Path, include_docs: bool = False) -> dict:
         "framework": framework,
         "callbacks": callbacks,
         "components": list(components.values()),
-        "external": [{"name": v["name"], "used_by": sorted(v["used_by"]), "calls": sorted(v["calls"])}
-                     for v in sorted(ext_libs.values(), key=lambda x: x["name"])],
+        "external": [
+            {"name": v["name"], "used_by": sorted(v["used_by"]), "calls": sorted(v["calls"])}
+            for v in sorted(ext_libs.values(), key=lambda x: x["name"])
+        ],
         "data_files": data_nodes,
         "data_reads": data_reads,
         "writers": writers,
@@ -470,8 +596,11 @@ def main():
     ap = argparse.ArgumentParser(description="Build the NSBI project graph explorer (HTML).")
     ap.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="project root folder")
     ap.add_argument("--out", type=Path, default=HERE / "NSBI_project_explorer.html", help="output HTML file")
-    ap.add_argument("--include-docs", action="store_true",
-                    help="show the docs/ tooling code in the graphs by default (checkbox pre-ticked)")
+    ap.add_argument(
+        "--include-docs",
+        action="store_true",
+        help="show the docs/ tooling code in the graphs by default (checkbox pre-ticked)",
+    )
     args = ap.parse_args()
     root = args.root.resolve()
     if not (root / "app.py").exists():
@@ -480,8 +609,10 @@ def main():
     template = (HERE / "explorer_template.html").read_text(encoding="utf-8")
     payload = json.dumps(data, ensure_ascii=False, default=list).replace("</", "<\\/")
     args.out.write_text(template.replace("/*__DATA__*/null", payload), encoding="utf-8")
-    print(f"Wrote {args.out}  ({len(data['functions'])} functions, {len(data['callbacks'])} callbacks, "
-          f"{len(data['components'])} components, {len(data['files'])} files)")
+    print(
+        f"Wrote {args.out}  ({len(data['functions'])} functions, {len(data['callbacks'])} callbacks, "
+        f"{len(data['components'])} components, {len(data['files'])} files)"
+    )
 
 
 if __name__ == "__main__":

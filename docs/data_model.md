@@ -37,7 +37,8 @@ All data is in `data/smart_buildings_dataset.xlsx`. The app reads it with `compo
 - `validation_status`: one of `Incomplete`, `Incorrect`, `Extracted by AI`, `Validated by AI`,
   `Validated by project/pilot owner`, `Validated by external human validator`
   (`components/data.py::VALIDATION_STATUSES`). Set by the maintainer, not by contributors. Currently `Extracted by AI`
-  for all buildings except the anonymised EDISON pilots (`Incorrect`, deliberately altered identity and location).
+  for most buildings, `Incomplete` when key information is missing (e.g. only the region or country of the building
+  is published), and `Incorrect` for the anonymised EDISON pilots (deliberately altered identity and location).
 
 Both lists are shown on the About page and keep their natural order (not A–Z) in filters, legends and colours
 (`components/data.py::sort_categories`).
@@ -106,5 +107,13 @@ Write the description so that a user unfamiliar with the frameworks understands 
 - 9 SmartLivingEPC pilots (SLE-01…09; Horizon Europe SmartLivingEPC D2.4, section 2.6) in Greece, Cyprus, Estonia
   and Leitza (Navarre, Spain): SRI total, key functionalities, 7 impacts and 9 domains read from charts. Private
   dwellings in Leitza are anonymised (random position within about 1.5 km).
+- 42 non-residential buildings (CEB-001…042) and 50 residential buildings (CEN-001…050) from the SRI datasets of
+  Caracci et al. (2026): *Energy & Buildings* 358, 117215 and *Energies* 19, 4762 (main references). The building
+  and performance references point to the original study of each building (papers, theses, SRI-ENACT, ENEA, VITO,
+  EC case study n°2). Buildings already in the dataset, theoretical/typical reference buildings and averaged values
+  were not added. Private dwellings and buildings whose location is not published are anonymised (random position
+  around the town, or within the region or country; status `Incomplete` when only the region, city or country is known).
+- The same datasets and the TIMEPAC D2.4 Annex A2 factsheets completed AVE-B01…B10 (floor area, energy label,
+  impact and domain scores) and TPC-AT09, HR01, CY03, IT15, SI02, ES03 (region, floor area, energy, impacts, domains).
 
 Map positions marked *approximate* or *anonymised* in `location_precision` are not exact building locations.
