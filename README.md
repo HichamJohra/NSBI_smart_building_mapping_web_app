@@ -4,14 +4,20 @@ Web app to map and explore smart buildings around the world [NSBI project]
 Multi-page [Dash](https://dash.plotly.com/) web app to map and explore smart building cases
 (Smart Readiness Indicator and Smart by Powerhouse assessments) from an embedded Excel dataset.
 
+[![CI](https://github.com/HichamJohra/NSBI_smart_building_mapping_web_app/actions/workflows/ci.yml/badge.svg)](https://github.com/HichamJohra/NSBI_smart_building_mapping_web_app/actions/workflows/ci.yml)
+
 ## Run locally
 
+With [uv](https://docs.astral.sh/uv/) (Python 3.11–3.14):
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate        # Windows  (macOS/Linux: source .venv/bin/activate)
-pip install -r requirements.txt
-python app.py                 # -> http://127.0.0.1:8050
+uv sync                       # create .venv with the exact versions of uv.lock
+uv run python app.py          # -> http://127.0.0.1:8050
+uv run pytest                 # tests
+uv run pre-commit run -a      # code checks (Ruff, mypy, ...)
 ```
+
+See [docs/development.md](docs/development.md) for the full setup, the tests and the CI workflow.
 
 ## Project structure
 
@@ -27,7 +33,10 @@ python app.py                 # -> http://127.0.0.1:8050
 | `components/figures.py` | Plotly figure builders |
 | `components/submissions.py` | Data contributions: template, validation, anti-spam checks, storage |
 | `tools/fetch_submissions.py` | Maintainer script: download (and delete) the contributions from the server |
-| `Dockerfile`, `.dockerignore` | Container image for Docker / Google Cloud Run (see `docs/deployment.md`) |
+| `tests/` | pytest suite: dataset integrity, data contributions, app pages and callbacks |
+| `pyproject.toml`, `uv.lock`, `.python-version` | Dependencies (exact versions in `uv.lock`) and settings of Ruff, mypy, pytest |
+| `.pre-commit-config.yaml`, `.github/workflows/ci.yml` | Code checks before each commit; CI on GitHub (checks + tests on Python 3.11–3.14 and Windows) |
+| `Dockerfile`, `.dockerignore` | Container image for Docker / Google Cloud Run, built with uv (see `docs/deployment.md`) |
 | `assets/style.css` | Styling (auto-loaded by Dash) |
 | `assets/favicon.ico`, `assets/logos/` | SINTEF browser-tab icon; SINTEF and IBPSA Nordic logos (top right of every page, linked to their websites); NSBI logo (About page) |
 | `data/smart_buildings_dataset.xlsx` | The dataset |

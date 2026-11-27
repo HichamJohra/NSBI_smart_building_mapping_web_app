@@ -9,18 +9,19 @@ Run on your own PC (not part of the web app). Each submission is an Excel file w
      ready for review before copying accepted rows into data/smart_buildings_dataset.xlsx.
 
 From Google Cloud Storage (production):
-    pip install -r tools/requirements-tools.txt          # once
+    uv sync                                              # once (installs the 'tools' group)
     gcloud auth application-default login                # once, with your Google account
-    python tools/fetch_submissions.py --bucket BUCKET_NAME   # name: see the maintainer's private notes
+    uv run python tools/fetch_submissions.py --bucket BUCKET_NAME   # name: see the maintainer's private notes
 
 From a local folder (development, when the app runs on your PC):
-    python tools/fetch_submissions.py --local-dir submissions
+    uv run python tools/fetch_submissions.py --local-dir submissions
 
 Options:
     --dest DIR      where to save (default: downloaded_submissions/<date-time>)
     --keep          download only, do not delete anything
     --no-combine    do not write combined_submissions.xlsx
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,7 +48,7 @@ def fetch_from_bucket(bucket_name: str, dest: Path, keep: bool, prefix: str = ""
     try:
         from google.cloud import storage
     except ImportError:
-        sys.exit("google-cloud-storage is missing: pip install -r tools/requirements-tools.txt")
+        sys.exit("google-cloud-storage is missing: run uv sync (installs the 'tools' group)")
     client = storage.Client()
     blobs = [b for b in client.list_blobs(bucket_name, prefix=prefix or None) if b.name.lower().endswith(".xlsx")]
     if not blobs:
@@ -93,12 +94,13 @@ def fetch_from_folder(folder: Path, dest: Path, keep: bool) -> list[Path]:
 def combine(files: list[Path], dest: Path) -> Path | None:
     """All submitted buildings in one Excel sheet, first column = submission id."""
     import pandas as pd
+
     frames = []
     for f in files:
         try:
             b = pd.read_excel(f, sheet_name="buildings", dtype=object)
             info = pd.read_excel(f, sheet_name="submission_info", header=None, dtype=object)  # key | value rows
-        except Exception as e:  # noqa: BLE001 – report and continue with the other files
+        except Exception as e:
             print(f"  ! {f.name}: cannot be read ({e})")
             continue
         meta = dict(zip(info.iloc[:, 0], info.iloc[:, 1])) if info.shape[1] >= 2 else {}
@@ -119,8 +121,11 @@ def combine(files: list[Path], dest: Path) -> Path | None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Download (and delete) data contributions of the NSBI web app.")
     src = ap.add_mutually_exclusive_group()
-    src.add_argument("--bucket", default=os.environ.get("NSBI_SUBMISSIONS_BUCKET"),
-                     help="Cloud Storage bucket name (or env NSBI_SUBMISSIONS_BUCKET)")
+    src.add_argument(
+        "--bucket",
+        default=os.environ.get("NSBI_SUBMISSIONS_BUCKET"),
+        help="Cloud Storage bucket name (or env NSBI_SUBMISSIONS_BUCKET)",
+    )
     src.add_argument("--local-dir", type=Path, help="local submissions folder instead of a bucket")
     ap.add_argument("--prefix", default="", help="only objects whose name starts with this prefix")
     ap.add_argument("--dest", type=Path, default=None, help="destination folder")
@@ -132,8 +137,11 @@ def main() -> None:
 
     dest = args.dest or ROOT / "downloaded_submissions" / dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     print(f"Destination: {dest}")
-    files = (fetch_from_folder(args.local_dir, dest, args.keep) if args.local_dir
-             else fetch_from_bucket(args.bucket, dest, args.keep, args.prefix))
+    files = (
+        fetch_from_folder(args.local_dir, dest, args.keep)
+        if args.local_dir
+        else fetch_from_bucket(args.bucket, dest, args.keep, args.prefix)
+    )
     print(f"{len(files)} submission file(s) {'downloaded' if args.keep else 'downloaded and removed from the server'}.")
     if files and not args.no_combine:
         out = combine(files, dest)

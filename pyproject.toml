@@ -1,0 +1,102 @@
+# Project settings: dependencies and tool configuration (the web app is not an installable package).
+# Day-to-day commands (see docs/development.md):
+#   uv sync                      create/update .venv with the app and all dev tools
+#   uv run python app.py         run the app locally -> http://127.0.0.1:8050
+#   uv run pytest                run the tests
+#   uv run pre-commit run -a     run every check (Ruff, mypy, ...)
+
+[project]
+name = "nsbi-smart-building-mapping"
+version = "0.1.0"
+description = "Web app to map and explore smart buildings (SRI and Smart by Powerhouse) - NSBI project"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Hicham Johra" }]
+requires-python = ">=3.11"
+dependencies = [
+    "dash>=4.0",
+    "dash-ag-grid>=35.0",
+    "plotly>=6.0",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "openpyxl>=3.1.5",
+    "defusedxml>=0.7.1",  # used automatically by openpyxl: safe parsing of uploaded Excel files (XML bombs)
+    "gunicorn>=23 ; sys_platform != 'win32'",  # production web server (Docker image, Linux)
+]
+
+[project.urls]
+Repository = "https://github.com/HichamJohra/NSBI_smart_building_mapping_web_app"
+
+# Development-only dependencies (PEP 735). `uv sync` installs the default groups.
+[dependency-groups]
+dev = [
+    "mypy>=2.4",
+    "pre-commit>=4.7",
+    "pytest>=9.1",
+    "pytest-cov>=7.1",
+    "ruff>=0.17",
+]
+tools = [  # maintainer scripts in tools/ (run on your PC, not needed by the web app)
+    "google-cloud-storage>=2.16",
+]
+
+[tool.uv]
+package = false  # an application, not a library: only the dependencies are installed
+default-groups = ["dev", "tools"]
+
+# ---------------------------------------------------------------- Ruff
+[tool.ruff]
+line-length = 120
+extend-exclude = ["docs/project_graph_explorer/explorer_template.html"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import sorting
+    "B",       # bugbear: likely bugs
+    "UP",      # pyupgrade: modern syntax for the minimum Python version
+    "SIM",     # simplifications
+    "C4",      # comprehensions
+    "PT",      # pytest style
+    "RUF",     # Ruff-specific
+]
+ignore = [
+    "E501",    # long lines: the formatter wraps code; long strings and comments are allowed
+    "C408",    # dict(...) calls: the usual, readable style for Plotly layout and marker settings
+    "B905",    # zip() without strict=: the zipped sequences come from the same source (same length)
+    "RUF001", "RUF002", "RUF003",  # "ambiguous" characters: en dashes, ×, … are intended in user-facing text
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "components", "pages", "tools"]
+
+# ---------------------------------------------------------------- mypy
+# Not "strict" yet (Dash, Plotly and pandas are only partly typed); tighten step by step.
+[tool.mypy]
+python_version = "3.11"
+files = ["app.py", "components", "pages", "tools", "tests"]
+# pages/ and tests/ have no __init__.py (Dash imports pages/ itself): name modules from the project root
+mypy_path = "."
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# ---------------------------------------------------------------- pytest & coverage
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]  # import app, components and pages from the project root
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+filterwarnings = ["ignore::DeprecationWarning:dash.*", "ignore::DeprecationWarning:plotly.*"]
+
+[tool.coverage.run]
+source = ["app", "components", "pages"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

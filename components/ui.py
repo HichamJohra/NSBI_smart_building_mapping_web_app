@@ -1,4 +1,5 @@
 """Small reusable layout blocks."""
+
 from typing import Any
 
 from dash import dcc, html
@@ -15,7 +16,7 @@ PERSIST: Any = {"persistence": True, "persistence_type": "session"}
 
 
 def card(children, title: str | None = None, subtitle: str | None = None, className: str = "") -> html.Div:
-    head = []
+    head: list[Any] = []
     if title:
         head.append(html.H3(title, className="card-title"))
     if subtitle:
@@ -37,8 +38,15 @@ def kpi(label: str, value_id: str, sub_id: str | None = None, description: str =
 
 def kpi_static(label: str, value: str, sub: str = "", description: str = "") -> html.Div:
     """KPI card with a fixed value; `description` is shown on hover."""
-    return html.Div([html.Div(label, className="kpi-label"), html.Div(value, className="kpi-value"),
-                     html.Div(sub, className="kpi-sub")], className="kpi", title=description or None)
+    return html.Div(
+        [
+            html.Div(label, className="kpi-label"),
+            html.Div(value, className="kpi-value"),
+            html.Div(sub, className="kpi-sub"),
+        ],
+        className="kpi",
+        title=description or None,
+    )
 
 
 def graph(gid: str, height: int | None = None, **kwargs) -> dcc.Loading:

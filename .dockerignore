@@ -1,4 +1,5 @@
 .git
+.github
 .gitignore
 .idea
 .vscode
@@ -7,9 +8,16 @@ venv
 **/__pycache__
 *.pyc
 .env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+.pre-commit-config.yaml
 submissions
 downloaded_submissions
 docs
+tests
 tools
 Dockerfile
 .dockerignore

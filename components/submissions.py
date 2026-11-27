@@ -15,6 +15,7 @@ Settings (environment variables):
   SUBMISSION_SECRET     secret key signing the anti-spam check; set it in production so that all
                         server instances share it                       (default: random per process)
 """
+
 from __future__ import annotations
 
 import base64
@@ -35,11 +36,20 @@ from typing import Any
 
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.xml import DEFUSEDXML  # True when defusedxml is installed: openpyxl then parses XML safely
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.xml import DEFUSEDXML  # True when defusedxml is installed: openpyxl then parses XML safely
 
-from components.data import ASHRAE_ZONE_CODES, ASHRAE_ZONE_LABELS, all_columns, description, get_data, is_numeric, label, unit
+from components.data import (
+    ASHRAE_ZONE_CODES,
+    ASHRAE_ZONE_LABELS,
+    all_columns,
+    description,
+    get_data,
+    is_numeric,
+    label,
+    unit,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SUBMISSIONS_DIR = Path(os.environ.get("SUBMISSIONS_DIR", PROJECT_ROOT / "submissions"))
@@ -49,11 +59,26 @@ MAX_ROWS_PER_UPLOAD = 500
 MAX_TEXT_LENGTH = 2000
 
 # Columns that contributors must fill in (form and every row of an uploaded file)
-REQUIRED = ["building_name", "city", "country", "latitude", "longitude", "building_type",
-            "construction_period", "main_reference"]
+REQUIRED = [
+    "building_name",
+    "city",
+    "country",
+    "latitude",
+    "longitude",
+    "building_type",
+    "construction_period",
+    "main_reference",
+]
 # Groups of which at least one value must be given (a building without any result is not useful)
-RESULT_GROUPS = ["SRI", "SRI key functionality", "SRI impact criteria", "SRI technical domains",
-                 "Smart by Powerhouse", "Smart by Powerhouse topics", "Building performance"]
+RESULT_GROUPS = [
+    "SRI",
+    "SRI key functionality",
+    "SRI impact criteria",
+    "SRI technical domains",
+    "Smart by Powerhouse",
+    "Smart by Powerhouse topics",
+    "Building performance",
+]
 # Columns not offered to contributors (assigned by the maintainer)
 NOT_CONTRIBUTED = {"building_id", "validation_status"}
 # Categorical columns that only accept a fixed list of values (compared case-insensitively, stored as listed)
@@ -62,14 +87,14 @@ ALLOWED_VALUES = {"ashrae_climate_zone": ASHRAE_ZONE_LABELS}
 VALUE_ALIASES = {"ashrae_climate_zone": dict(zip(ASHRAE_ZONE_CODES, ASHRAE_ZONE_LABELS))}
 
 # Anti-spam settings
-MIN_SECONDS_ON_PAGE = 5          # faster than this = bot
-TOKEN_MAX_AGE_S = 6 * 3600       # the page must be reloaded after 6 h
+MIN_SECONDS_ON_PAGE = 5  # faster than this = bot
+TOKEN_MAX_AGE_S = 6 * 3600  # the page must be reloaded after 6 h
 RATE_LIMITS = [(600, 5), (86400, 30)]  # (window in seconds, max submissions) per client IP and server instance
 
 _SECRET = os.environ.get("SUBMISSION_SECRET", "").encode() or secrets.token_bytes(32)
 
 if not DEFUSEDXML:  # uploads are still size-limited, but XML-bomb protection is missing
-    print("WARNING: 'defusedxml' is not installed; run pip install -r requirements.txt", flush=True)
+    print("WARNING: 'defusedxml' is not installed; run uv sync", flush=True)
 
 
 # ----------------------------------------------------------------- columns and rules
@@ -150,8 +175,7 @@ def clean_record(raw: dict) -> tuple[dict, list[str]]:
                 match = accepted.get(" ".join(s.split()).upper())
                 if match is None:
                     short = list(VALUE_ALIASES.get(col, {})) or ALLOWED_VALUES[col]
-                    errors.append(f"{label(col, with_unit=False)}: '{s}' is not a valid value "
-                                  f"({', '.join(short)}).")
+                    errors.append(f"{label(col, with_unit=False)}: '{s}' is not a valid value ({', '.join(short)}).")
                     continue
                 s = match
             if len(s) > MAX_TEXT_LENGTH:
@@ -161,8 +185,9 @@ def clean_record(raw: dict) -> tuple[dict, list[str]]:
         if col in rec and rec[col] is None:
             errors.append(f"{label(col, with_unit=False)} is required.")
     if not any(rec.get(c) is not None for c, g in groups.items() if g in RESULT_GROUPS and c in rec):
-        errors.append("Give at least one result: an SRI score, a Smart by Powerhouse level or a building "
-                      "performance indicator.")
+        errors.append(
+            "Give at least one result: an SRI score, a Smart by Powerhouse level or a building performance indicator."
+        )
     return rec, errors
 
 
@@ -188,8 +213,12 @@ def parse_upload(contents: str, filename: str) -> tuple[list[dict], list[str]]:
     known = set(contributed_columns())
     unknown = [c for c in df.columns if c not in known and not c.startswith("Unnamed")]
     if unknown:
-        return [], ["Unknown column(s): " + ", ".join(unknown[:10]) + (" …" if len(unknown) > 10 else "")
-                    + ". Use the column names of the template (first row)."]
+        return [], [
+            "Unknown column(s): "
+            + ", ".join(unknown[:10])
+            + (" …" if len(unknown) > 10 else "")
+            + ". Use the column names of the template (first row)."
+        ]
     if len(df) > MAX_ROWS_PER_UPLOAD:
         return [], [f"Too many rows ({len(df)}). The maximum is {MAX_ROWS_PER_UPLOAD} buildings per file."]
     records, errors = [], []
@@ -235,8 +264,15 @@ def template_bytes() -> bytes:
     for i, c in enumerate(cols, start=2):
         rng = value_range(c)
         rng_txt = "" if not rng else f"{rng[0]:g} … {'∞' if math.isinf(rng[1]) else f'{rng[1]:g}'}"
-        vals = [c, label(c, with_unit=False), unit(c), "number" if is_numeric(c) else "text",
-                "yes" if c in REQUIRED else "", rng_txt, description(c)]
+        vals = [
+            c,
+            label(c, with_unit=False),
+            unit(c),
+            "number" if is_numeric(c) else "text",
+            "yes" if c in REQUIRED else "",
+            rng_txt,
+            description(c),
+        ]
         for j, v in enumerate(vals, start=1):
             _set(dd, i, j, v)
     for j, w in enumerate([34, 40, 16, 9, 9, 16, 100], start=1):
@@ -267,14 +303,14 @@ def template_bytes() -> bytes:
     return buf.getvalue()
 
 
-def _slug(text: str, n: int = 30) -> str:
+def _slug(text: Any, n: int = 30) -> str:
     s = re.sub(r"[^A-Za-z0-9]+", "-", str(text or "")).strip("-")
     return s[:n] or "building"
 
 
 def save_submission(records: list[dict], kind: str, comment: str = "", original_filename: str = "") -> str:
     """Write the submitted buildings to a new Excel file in SUBMISSIONS_DIR. Returns the submission id."""
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     sub_id = f"{now:%Y%m%d-%H%M%S}-{secrets.token_hex(3)}"
     first = records[0].get("building_name") if records else ""
     name = f"{sub_id}_{kind}_{_slug(first)}{'_and-more' if len(records) > 1 else ''}.xlsx"
@@ -290,9 +326,14 @@ def save_submission(records: list[dict], kind: str, comment: str = "", original_
             _set(ws, i, j, rec.get(c))
     _header_style(ws)
     info = wb.create_sheet("submission_info")
-    rows = [("submission_id", sub_id), ("received_utc", now.strftime("%Y-%m-%d %H:%M:%S")),
-            ("channel", kind), ("buildings", len(records)), ("original_filename", original_filename or ""),
-            ("comment", (comment or "")[:MAX_TEXT_LENGTH])]
+    rows = [
+        ("submission_id", sub_id),
+        ("received_utc", now.strftime("%Y-%m-%d %H:%M:%S")),
+        ("channel", kind),
+        ("buildings", len(records)),
+        ("original_filename", original_filename or ""),
+        ("comment", (comment or "")[:MAX_TEXT_LENGTH]),
+    ]
     for i, (k, v) in enumerate(rows, start=1):
         _set(info, i, 1, k)
         _set(info, i, 2, v)
@@ -330,7 +371,10 @@ def check_human(token: dict | None, answer: Any, honeypot: str | None) -> str | 
     if age < MIN_SECONDS_ON_PAGE:
         return "Please take a moment to check your entry before sending."
     try:
-        ans = int(_to_number(answer))
+        num = _to_number(answer)
+        if num is None:
+            raise ValueError
+        ans = int(num)
     except (TypeError, ValueError):
         return "Please answer the anti-spam question."
     expected = hmac.new(_SECRET, f"{int(token['ts'])}:{ans}".encode(), hashlib.sha256).hexdigest()
@@ -361,6 +405,7 @@ def client_id() -> str:
     """Client IP for rate limiting (behind Cloud Run's proxy the first X-Forwarded-For entry is the client)."""
     try:
         from flask import request
+
         fwd = request.headers.get("X-Forwarded-For", "")
         return fwd.split(",")[0].strip() or (request.remote_addr or "unknown")
     except (RuntimeError, ImportError):  # outside a request (tests)

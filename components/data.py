@@ -8,12 +8,13 @@ The sheet 'data_dictionary' drives the app: label, unit, group, dtype and descri
 All columns are offered in the dropdowns that fit their dtype (numeric / categorical); the 'hover' flag (Y)
 marks the parameters always shown in hover pop-ups.
 """
+
 from __future__ import annotations
 
 import math
-from typing import Any
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from dash import html
@@ -34,17 +35,23 @@ SBP_LEVEL_NAMES = {
 # degree-days with base 18 °C / 10 °C. Moisture letter: A Humid, B Dry, C Marine (zones 7 and 8 have no letter).
 # Dataset values are written "code (name)", e.g. "6A (Cold – Humid)" (see ASHRAE_ZONE_LABELS).
 ASHRAE_CLIMATE_ZONES = [
-    ("0A", "Extremely Hot – Humid", "CDD10 > 6000"), ("0B", "Extremely Hot – Dry", "CDD10 > 6000"),
-    ("1A", "Very Hot – Humid", "5000 < CDD10 ≤ 6000"), ("1B", "Very Hot – Dry", "5000 < CDD10 ≤ 6000"),
-    ("2A", "Hot – Humid", "3500 < CDD10 ≤ 5000"), ("2B", "Hot – Dry", "3500 < CDD10 ≤ 5000"),
-    ("3A", "Warm – Humid", "CDD10 ≤ 3500 and HDD18 ≤ 2000"), ("3B", "Warm – Dry", "CDD10 ≤ 3500 and HDD18 ≤ 2000"),
+    ("0A", "Extremely Hot – Humid", "CDD10 > 6000"),
+    ("0B", "Extremely Hot – Dry", "CDD10 > 6000"),
+    ("1A", "Very Hot – Humid", "5000 < CDD10 ≤ 6000"),
+    ("1B", "Very Hot – Dry", "5000 < CDD10 ≤ 6000"),
+    ("2A", "Hot – Humid", "3500 < CDD10 ≤ 5000"),
+    ("2B", "Hot – Dry", "3500 < CDD10 ≤ 5000"),
+    ("3A", "Warm – Humid", "CDD10 ≤ 3500 and HDD18 ≤ 2000"),
+    ("3B", "Warm – Dry", "CDD10 ≤ 3500 and HDD18 ≤ 2000"),
     ("3C", "Warm – Marine", "HDD18 ≤ 2000"),
     ("4A", "Mixed – Humid", "CDD10 ≤ 3500 and 2000 < HDD18 ≤ 3000"),
     ("4B", "Mixed – Dry", "CDD10 ≤ 3500 and 2000 < HDD18 ≤ 3000"),
     ("4C", "Mixed – Marine", "2000 < HDD18 ≤ 3000"),
-    ("5A", "Cool – Humid", "3000 < HDD18 ≤ 4000"), ("5B", "Cool – Dry", "3000 < HDD18 ≤ 4000"),
+    ("5A", "Cool – Humid", "3000 < HDD18 ≤ 4000"),
+    ("5B", "Cool – Dry", "3000 < HDD18 ≤ 4000"),
     ("5C", "Cool – Marine", "3000 < HDD18 ≤ 4000"),
-    ("6A", "Cold – Humid", "4000 < HDD18 ≤ 5000"), ("6B", "Cold – Dry", "4000 < HDD18 ≤ 5000"),
+    ("6A", "Cold – Humid", "4000 < HDD18 ≤ 5000"),
+    ("6B", "Cold – Dry", "4000 < HDD18 ≤ 5000"),
     ("7", "Very Cold", "5000 < HDD18 ≤ 7000"),
     ("8", "Subarctic/Arctic", "HDD18 > 7000"),
 ]
@@ -54,8 +61,10 @@ ASHRAE_ZONE_LABELS = [f"{code} ({name})" for code, name, _ in ASHRAE_CLIMATE_ZON
 # Information validation status of a building entry, from least to most checked: (value, meaning)
 VALIDATION_STATUSES = [
     ("Incomplete", "Key information is missing; the entry needs to be completed."),
-    ("Incorrect", "Known errors or deliberately altered data (e.g. anonymised name or shifted location); "
-                  "do not use as exact."),
+    (
+        "Incorrect",
+        "Known errors or deliberately altered data (e.g. anonymised name or shifted location); do not use as exact.",
+    ),
     ("Extracted by AI", "Taken from the sources by an AI assistant; not yet checked."),
     ("Validated by AI", "Cross-checked against the sources by an AI assistant."),
     ("Validated by project/pilot owner", "Checked and confirmed by the building owner or project partner."),
@@ -219,8 +228,9 @@ def dropdown_options(cols: list[str]) -> list[Any]:
         empty = not has_data(c)
         if empty:
             text += " (no data yet)"
-        opts.append({"label": hover_label(text, tooltip(c)), "value": c, "search": f"{text} {c}",
-                     "disabled": empty})  # empty parameters are listed but cannot be selected
+        opts.append(
+            {"label": hover_label(text, tooltip(c)), "value": c, "search": f"{text} {c}", "disabled": empty}
+        )  # empty parameters are listed but cannot be selected
     return opts
 
 
@@ -247,15 +257,24 @@ def fmt(col: str, value) -> str:
 def sbp_level_name(level) -> str:
     if level is None or (isinstance(level, float) and math.isnan(level)):
         return "n/a"
-    return SBP_LEVEL_NAMES.get(int(math.floor(level)), "")
+    return SBP_LEVEL_NAMES.get(math.floor(level), "")
 
 
 def building_options() -> list[Any]:
     b = get_data().buildings
+
     def title(r):
-        parts = [str(x) for x in (getattr(r, "building_type", None), getattr(r, "city", None),
-                                  getattr(r, "construction_period", None)) if isinstance(x, str) and x]
+        parts = [
+            str(x)
+            for x in (
+                getattr(r, "building_type", None),
+                getattr(r, "city", None),
+                getattr(r, "construction_period", None),
+            )
+            if isinstance(x, str) and x
+        ]
         return " · ".join(parts)
+
     opts = []
     for r in b.itertuples():
         text = f"{r.short_name} — {r.building_name}"
