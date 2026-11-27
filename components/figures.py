@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -69,6 +70,17 @@ def empty_figure(message: str, height: int = 400) -> go.Figure:
     return fig
 
 
+HOVER_LINE_CHARS = 70  # wrap long values (e.g. references) so the pop-up stays narrow
+HOVER_MAX_CHARS = 240  # longer values are shortened with "…"
+
+
+def _hover_line(text: str) -> str:
+    """One pop-up line, wrapped on several lines (Plotly does not wrap hover text by itself)."""
+    if len(text) > HOVER_MAX_CHARS:
+        text = text[: HOVER_MAX_CHARS - 1].rstrip() + "…"
+    return "<br>&nbsp;&nbsp;&nbsp;".join(textwrap.wrap(text, HOVER_LINE_CHARS)) or text
+
+
 def hover_text(df: pd.DataFrame, extra_cols: list[str | None]) -> list[str]:
     cols = []
     for c in columns_for("hover") + [c for c in extra_cols if c]:
@@ -82,7 +94,7 @@ def hover_text(df: pd.DataFrame, extra_cols: list[str | None]) -> list[str]:
             txt = fmt(c, v)
             if c == "sbp_level" and txt != "n/a":
                 txt = f"{txt} ({sbp_level_name(v)})"
-            lines.append(f"{label(c, with_unit=False)}: {txt}")
+            lines.append(_hover_line(f"{label(c, with_unit=False)}: {txt}"))
         texts.append("<br>".join(lines))
     return texts
 
